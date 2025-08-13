@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotAcceptableException } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
 import { SignUpDto } from './dto/sign_up.user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { PendingUser, PendingUserDocument, User, UserDocument } from 'src/comman/schema/user.schema';
@@ -9,6 +9,7 @@ import { TokenService } from 'src/comman/token/token.service';
 import * as crypto from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { NotFoundError } from 'rxjs';
+import { ApiResponse } from '@nestjs/swagger';
 
 
 @Injectable()
@@ -146,6 +147,16 @@ export class UserService {
       accessToken,
       refreshToken
     };
+  }
+
+  async logout(userId:mongoose.Types.ObjectId){
+  const user = await this.userModel.findByIdAndUpdate(userId, {
+      $set: {
+        refreshToken: '',
+      },
+    });
+
+    return {Message:"User logged out successfully"}
   }
 
 }

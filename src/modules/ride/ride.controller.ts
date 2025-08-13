@@ -1,34 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { RideService } from './ride.service';
+import { Controller, Get, Post, Body, Param, Req, UseGuards } from '@nestjs/common';
+import {RideService} from './ride.service';
 import { CreateRideDto } from './dto/create-ride.dto';
-import { UpdateRideDto } from './dto/update-ride.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { Roles } from 'src/comman/decorator/role.decorator';
+import { Role } from 'src/comman/enums/role.enum';
 
 @Controller('ride')
 export class RideController {
   constructor(private readonly rideService: RideService) {}
 
   @Post()
-  create(@Body() createRideDto: CreateRideDto) {
-    return this.rideService.create(createRideDto);
+  @ApiBearerAuth()
+  @Roles(Role.User)
+
+  create(@Req() request: any, @Body() createRideDto: CreateRideDto) {
+    return this.rideService.createRide(request,createRideDto);
   }
 
-  @Get()
-  findAll() {
-    return this.rideService.findAll();
+  @ApiBearerAuth()
+  @Roles(Role.Driver)
+  @Get("accept/:rideId")
+  handleAcceptRide(@Param('rideId') rideId: string, @Req() request: any) {
+    return this.rideService.acceptRide(rideId, request);
   }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.rideService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateRideDto: UpdateRideDto) {
-    return this.rideService.update(+id, updateRideDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.rideService.remove(+id);
-  }
+  
 }
