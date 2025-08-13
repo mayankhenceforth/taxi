@@ -68,11 +68,13 @@ export class User {
         default: false,
     })
     isContactNumberVerified: boolean;
+
     @Prop({
         required: true,
         default: 'user',
     })
     role: 'admin' | 'user' | 'super-admin' | 'driver';
+
     @Prop({
         type: { type: String, enum: ['Point'], default: 'Point' },
         coordinates: { type: [Number], default: [0, 0] },
@@ -88,7 +90,70 @@ export class User {
     })
     vehicleDetails?: Types.ObjectId;
 
+    @Prop({
+        required: true,
+        default: false,
+    })
+    isVerified: boolean
+
 }
 
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+export type PendingUserDocument = PendingUser & Document;
+@Schema({ timestamps: true })
+export class PendingUser {
+    @Prop({
+        required: true,
+        trim: true
+    })
+    name: string
+
+    @Prop({ required: true })
+    contactNumber: number
+
+    @Prop({ required: true })
+    password: string
+
+    @Prop({ default: '' })
+    profilePic: string
+
+    @Prop({
+        required: true,
+        default: 'user',
+    })
+    role: 'admin' | 'user' | 'super-admin' | 'driver';
+
+    @Prop({
+        required: true,
+        default: false,
+    })
+    isVerified: boolean
+
+    @Prop()
+    refreshToken: string;
+
+    @Prop()
+    otp?: string; 
+    @Prop()
+    otpExpiresAt?: Date;
+
+    @Prop({
+        type: Types.ObjectId,
+        ref: VehicleDetails.name
+    })
+    vehicleDetails?: Types.ObjectId;
+
+
+    @Prop({
+        default: Date.now,
+        index: {
+            expires: 180,
+        },
+    })
+    createdAt: Date;
+}
+
+
+export const PendingUserSchema = SchemaFactory.createForClass(PendingUser);

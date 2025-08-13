@@ -6,7 +6,9 @@ import ConfigureDB from './comman/db/db';
 import { UserModule } from './modules/user/user.module';
 import { CloudinaryModule } from './comman/cloudinary/cloudinary.module';
 import { TokenModule } from './comman/token/token.module';
-import { RideModule } from './ride/ride.module';
+import { RideModule } from './modules/ride/ride.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { DriverModule } from './modules/driver/driver.module';
 
 @Module({
   imports: [
@@ -16,9 +18,12 @@ import { RideModule } from './ride/ride.module';
     }),
     CommonModule,
     ConfigureDB(),
-    UserModule, 
-    CloudinaryModule, RideModule, 
-    ],
+    UserModule,
+    CloudinaryModule,
+    RideModule,
+    AdminModule,
+    DriverModule
+  ],
 
 })
 export class AppModule { }

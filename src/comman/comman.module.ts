@@ -1,18 +1,24 @@
 import { Global, Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import ConfigureDB from "./db/db";
-import { User, UserSchema } from "./schema/user.schema";
+import { PendingUser, PendingUserSchema, User, UserSchema } from "./schema/user.schema";
 import { TokenModule } from './token/token.module';
+import { otpModule } from "./otp/otp.module";
 
 @Global()
 @Module({
     imports: [
         ConfigureDB(),
         MongooseModule.forFeature([{
-            name:User.name,
-            schema:UserSchema
+            name: User.name,
+            schema: UserSchema
+        },
+        {
+            name: PendingUser.name,
+            schema: PendingUserSchema
         }]),
-        TokenModule
+        TokenModule,
+        otpModule
     ],
     exports: [MongooseModule]
 })
