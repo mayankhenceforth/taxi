@@ -6,6 +6,7 @@ import ConfigureDB from './comman/db/db';
 import { UserModule } from './modules/user/user.module';
 import { CloudinaryModule } from './comman/cloudinary/cloudinary.module';
 import { TokenModule } from './comman/token/token.module';
+import { RideModule } from './ride/ride.module';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { TokenModule } from './comman/token/token.module';
     CommonModule,
     ConfigureDB(),
     UserModule, 
-    CloudinaryModule, 
+    CloudinaryModule, RideModule, 
     ],
 
 })
