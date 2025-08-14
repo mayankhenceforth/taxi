@@ -20,10 +20,13 @@ import { DriverModule } from './modules/driver/driver.module';
     ConfigureDB(),
     UserModule,
     CloudinaryModule,
-    RideModule,
+    // RideModule,
     AdminModule,
-    DriverModule
+    DriverModule,
   ],
 
 })
 export class AppModule { }
+
+
+

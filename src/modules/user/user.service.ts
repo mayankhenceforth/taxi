@@ -1,21 +1,22 @@
-import { BadRequestException, HttpStatus, Injectable, NotAcceptableException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable, NotAcceptableException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { SignUpDto } from './dto/sign_up.user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { PendingUser, PendingUserDocument, User, UserDocument } from 'src/comman/schema/user.schema';
 import mongoose, { Model, Mongoose } from 'mongoose';
 import * as bcrypt from 'bcrypt'
-import { promises } from 'dns';
 import { TokenService } from 'src/comman/token/token.service';
 import * as crypto from 'crypto';
 import { LoginDto } from './dto/login.dto';
-import { NotFoundError } from 'rxjs';
-import { ApiResponse } from '@nestjs/swagger';
+import ApiResponse from 'src/comman/helpers/api-response';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { log } from 'console';
 
 
 @Injectable()
 export class UserService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>, @InjectModel(PendingUser.name) private pendingUserModel: Model<PendingUserDocument>,
     private tokenService: TokenService,
+    private cloudinaryService: CloudinaryService
   ) { }
 
   private async getPendingUser(contactNumber: number): Promise<PendingUserDocument | null> {
@@ -67,6 +68,8 @@ export class UserService {
     const otp = crypto.randomInt(100000, 999999).toString();
 
 
+
+
     const otpExpiresAt = new Date(Date.now() + 30 * 1000);
 
     pendingUser.otp = otp;
@@ -105,7 +108,7 @@ export class UserService {
       profilePic: pendingUser.profilePic,
       vehicleDetails: pendingUser.vehicleDetails,
       location: pendingUser.location,
-      isContactNumberVerified: true,
+      isContactNumberVerified: true,  
     });
 
     await this.pendingUserModel.findByIdAndDelete(userId)
@@ -149,14 +152,43 @@ export class UserService {
     };
   }
 
-  async logout(userId:mongoose.Types.ObjectId){
-  const user = await this.userModel.findByIdAndUpdate(userId, {
+  async logout(userId: mongoose.Types.ObjectId) {
+    const user = await this.userModel.findByIdAndUpdate(userId, {
       $set: {
-        refreshToken: '',
+        refreshToken: '', 
       },
     });
 
-    return {Message:"User logged out successfully"}
+    return { Message: "User logged out successfully" }
   }
+  async uploadProfilePic(
+    userid,
+    profilePicFile: Express.Multer.File,
+  ): Promise<ApiResponse<string>> {
+    if (!profilePicFile) {
+      throw new NotFoundException("Oops! Please check ProfilePic field");
+    }
+
+    const existUser = await this.userModel.findById(userid)
+    if (!existUser) throw new UnauthorizedException("User not Found")
+
+    const cloudFile = await this.cloudinaryService.uploadFile(profilePicFile);
+
+    if (!cloudFile) {
+      throw new Error('Cloudinary upload failed');
+    }
+    existUser.profilePic = cloudFile.secure_url
+    existUser.save()
+    console.log(`user details :${existUser} and profilePic url ${cloudFile.secure_url}`);
+
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Profile picture uploaded successfully',
+      data: cloudFile.secure_url,
+    };;
+  }
+
+
 
 }
