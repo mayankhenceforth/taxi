@@ -16,13 +16,13 @@ import { User, UserDocument } from 'src/comman/schema/user.schema';
 @Injectable()
 export class RideService {
   private rideTimers: Map<string, { userTimeout: NodeJS.Timeout, driverTimeouts: NodeJS.Timeout[] }> = new Map();
-  
+  private readonly farePrice: number = 10; // Fare per km
+
   constructor(
     @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
     @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly rideGateway: RideGateway,
-    private readonly farePrice:number= 10
   ) { }
 
   private getDistanceKm(coord1: number[], coord2: number[]) {
@@ -47,10 +47,7 @@ export class RideService {
     radius: number,
     requestedVehicleType: string,
   ) {
-
-    console.log("coordinates", coordinates);
-
-    const driver = await this.userModel.aggregate([
+    const drivers = await this.userModel.aggregate([
       {
         $geoNear: {
           near: coordinates,
@@ -81,37 +78,30 @@ export class RideService {
       },
     ]);
 
-    // console.log("drivers",(driver[0].distance/1000).toFixed(2));
-
-
-    return driver
+    return drivers;
   }
 
-
-
   private async sendRideRequestToDrivers(ride: any) {
-    console.log("ride", ride);
-
-    let nearbyDrivers = await this.getNearbyDrivers(ride.pickupLocation, 12, ride.vehicleType);
-    console.log("near by drivers:", nearbyDrivers);
+    let nearbyDrivers = await this.getNearbyDrivers(ride.pickupLocation.coordinates, 12, ride.vehicleType);
 
     if (!nearbyDrivers || nearbyDrivers.length === 0) {
-      nearbyDrivers = await this.getNearbyDrivers(ride.pickupLocation, 15, ride.vehicleType);
+      nearbyDrivers = await this.getNearbyDrivers(ride.pickupLocation.coordinates, 15, ride.vehicleType);
       if (!nearbyDrivers || nearbyDrivers.length === 0) {
-        await this.rideModel.findByIdAndDelete(ride._id);
+        await this.TemporyRideModel.findByIdAndDelete(ride._id);
         throw new BadGatewayException('No driver available nearby!');
       }
-      await this.rideModel.findByIdAndUpdate(ride._id, { sentToRadius: 7 });
+      await this.TemporyRideModel.findByIdAndUpdate(ride._id, { sentToRadius: 7 });
     }
 
-    const driverTimeouts: NodeJS.Timeout[] = [];
+    // Save eligible drivers in temporary ride
+    await this.TemporyRideModel.findByIdAndUpdate(ride._id, { eligibleDrivers: nearbyDrivers.map(d => d._id) });
 
+    const driverTimeouts: NodeJS.Timeout[] = [];
 
     nearbyDrivers.forEach(driver => {
       this.rideGateway.sendRideRequest(driver._id.toString(), ride);
 
       const driverTimeout = setTimeout(() => {
-
         this.rideGateway.sendRideTerminated(driver._id.toString(), {
           rideId: ride._id,
           message: 'Ride request expired',
@@ -122,9 +112,9 @@ export class RideService {
     });
 
     const userTimeout = setTimeout(async () => {
-      const rideStatus = await this.rideModel.findById(ride._id);
+      const rideStatus = await this.TemporyRideModel.findById(ride._id);
       if (rideStatus && rideStatus.status === 'processing') {
-        await this.rideModel.findByIdAndDelete(ride._id);
+        await this.TemporyRideModel.findByIdAndDelete(ride._id);
         this.rideGateway.sendRideTerminated(ride.bookedBy.toString(), {
           rideId: ride._id,
           message: 'No driver accepted the ride. Ride terminated.',
@@ -149,11 +139,8 @@ export class RideService {
 
     if (!request.user?._id) throw new UnauthorizedException('User not found!');
     const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
-
-    // Calculate fare: 10 rupees per km
     const fare = distance * this.farePrice;
 
-    // Create temporary ride
     const newRide = await this.TemporyRideModel.create({
       pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
       dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
@@ -162,9 +149,9 @@ export class RideService {
       distance,
       fare,
       status: 'processing',
+      eligibleDrivers: [],
     });
 
-    // Fetch ride details for response
     const rideDetails = await this.TemporyRideModel.aggregate([
       { $match: { _id: newRide._id } },
       { $lookup: { from: 'users', localField: 'bookedBy', foreignField: '_id', as: 'bookedBy' } },
@@ -178,60 +165,49 @@ export class RideService {
           pickupLocation: '$pickupLocation.coordinates',
           dropoffLocation: '$dropoffLocation.coordinates',
           distance: 1,
-          fare: 1, 
-        
+          fare: 1,
         },
       },
     ]);
 
-    console.log("rides details:",rideDetails);
-    
-
-    // Send ride request to nearby drivers via WebSocket
     await this.sendRideRequestToDrivers(newRide);
 
     return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
   }
 
-async acceptRide(rideId: string, request: any): Promise<ApiResponse<any>> {
-  const driver = request.user;
+  async acceptRide(rideId: string, request: any): Promise<ApiResponse<any>> {
+    const driver = request.user;
 
-  if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
+    if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
 
-  const tempRide = await this.TemporyRideModel.findOneAndUpdate(
-    { _id: new Types.ObjectId(rideId), status: 'processing' },
-    { $set: { driver: driver._id, status: 'accepted' } },
-    { new: true },
-  );
+    // Only accept if driver is eligible
+    const tempRide = await this.TemporyRideModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(rideId), status: 'processing', eligibleDrivers: driver._id },
+      { $set: { driver: driver._id, status: 'accepted' } },
+      { new: true },
+    );
 
-  if (!tempRide) throw new BadRequestException('Ride already accepted or not found!');
+    if (!tempRide) throw new BadRequestException('Ride already accepted, not found, or you are not eligible!');
 
-  const timers = this.rideTimers.get(rideId);
-  if (timers) {
-    
-    timers.driverTimeouts.forEach(() => {
+    const timers = this.rideTimers.get(rideId);
+    if (timers) this.clearRideTimers(rideId);
+
+    const newRide = await this.rideModel.create({
+      bookedBy: tempRide.bookedBy,
+      driver: driver._id,
+      vehicleType: tempRide.vehicleType,
+      pickupLocation: tempRide.pickupLocation,
+      dropoffLocation: tempRide.dropoffLocation,
+      distance: tempRide.distance,
+      fare: tempRide.fare,
+      status: 'accepted',
+      sentToRadius: 5,
     });
-    this.clearRideTimers(rideId);
+
+    await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
+
+    this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), newRide);
+
+    return new ApiResponse(true, 'Ride has been accepted successfully!', HttpStatus.OK, newRide);
   }
-  const newRide = await this.rideModel.create({
-    bookedBy: tempRide.bookedBy,
-    driver: driver._id,
-    vehicleType: tempRide.vehicleType,
-    pickupLocation: tempRide.pickupLocation,
-    dropoffLocation: tempRide.dropoffLocation,
-    distance: tempRide.distance,
-    fare: tempRide.fare,
-    status: 'accepted',
-    sentToRadius: 5,
-  });
-
-  await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
-
-  this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), newRide);
-  timers?.driverTimeouts.forEach((timeout, index) => {
-   });
-
-  return new ApiResponse(true, 'Ride has been accepted successfully!', HttpStatus.OK, newRide);
-}
-
 }

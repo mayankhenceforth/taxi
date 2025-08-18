@@ -125,9 +125,12 @@ export class TemporaryRide {
   })
   fare: number;
   @Prop({
-    default:"processing"
+    default: "processing"
   })
-  status:string
+  status: string
+  
+  @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
+  eligibleDrivers: Types.ObjectId[];
 
   @Prop({
     default: Date.now,
