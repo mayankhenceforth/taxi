@@ -1,6 +1,5 @@
 import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { Server } from "socket.io"; 
-import { Socket } from "socket.io";
+import { Server, Socket } from "socket.io";
 
 @WebSocketGateway({ namespace: '/ride' })
 export class RideGateway {
@@ -16,7 +15,7 @@ export class RideGateway {
     handleDisconnect(client: Socket) {
         const userId = client.handshake.query.userId as string;
         this.connectedUsers.delete(userId);
-        console.log(`User ${userId} disconnected from ride gateway with socketId ${client.id}`);
+        console.log(`User ${userId} disconnected from ride gateway`);
     }
 
     sendRideRequest(driverId: string, rideDetails: any) {

@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Types, Document } from 'mongoose';
 import { User } from './user.schema';
 
-export type RideDocument = Ride & Document ;
+export type RideDocument = Ride & Document;
 
 @Schema({
   timestamps: true
@@ -23,24 +23,24 @@ export class Ride {
   driver?: Types.ObjectId;
 
   @Prop({
-    type : String,
-    enum : ['bike', 'car'],
-    required : true
+    type: String,
+    enum: ['bike', 'car'],
+    required: true
   })
-  vehicleType : 'bike' | 'car' ;
+  vehicleType: 'bike' | 'car';
 
   @Prop({
-    type : Number,
-    required : true,
-    default : 5
+    type: Number,
+    required: true,
+    default: 5
   })
-  sentToRadius : number ;
+  sentToRadius: number;
 
   @Prop({
-    type : Number,
-    required : true
+    type: Number,
+    required: true
   })
-  distance : number ;
+  distance: number;
 
   @Prop({
     required: true,
@@ -68,14 +68,15 @@ export class Ride {
     coordinates: number[];
   };
 
+
 }
 
 export const RideSchema = SchemaFactory.createForClass(Ride);
 
-export type TemporaryRideDocument = TemporaryRide & Document ;
+export type TemporaryRideDocument = TemporaryRide & Document;
 
 @Schema({
-  timestamps : true
+  timestamps: true
 })
 export class TemporaryRide {
 
@@ -87,11 +88,11 @@ export class TemporaryRide {
   bookedBy: Types.ObjectId;
 
   @Prop({
-    type : String,
-    enum : ['bike', 'car'],
-    required : true
+    type: String,
+    enum: ['bike', 'car'],
+    required: true
   })
-  vehicleType : 'bike' | 'car' ;
+  vehicleType: 'bike' | 'car';
 
   @Prop({
     type: { type: String, enum: ['Point'], default: 'Point' },
@@ -111,28 +112,27 @@ export class TemporaryRide {
     coordinates: number[];
   };
 
-  @Prop({
-    required : true,
-    type : String
-  })
-  paymentSessionId : string ;
 
   @Prop({
-    required : true,
-    type : Number
+    required: true,
+    type: Number
   })
-  distance : number ;
+  distance: number;
 
   @Prop({
-    required : true,
-    type : Number
+    required: true,
+    type: Number
   })
-  fare : number ;
+  fare: number;
+  @Prop({
+    default:"processing"
+  })
+  status:string
 
   @Prop({
     default: Date.now,
     index: {
-      expires: 86400, 
+      expires: 86400,
     },
   })
   createdAt: Date;

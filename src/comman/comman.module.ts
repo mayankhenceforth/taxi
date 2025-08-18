@@ -4,6 +4,7 @@ import ConfigureDB from "./db/db";
 import { PendingUser, PendingUserSchema, User, UserSchema } from "./schema/user.schema";
 import { TokenModule } from './token/token.module';
 import { otpModule } from "./otp/otp.module";
+import { SmsModule } from "./sms/sms.module";
 
 @Global()
 @Module({
@@ -18,7 +19,8 @@ import { otpModule } from "./otp/otp.module";
             schema: PendingUserSchema
         }]),
         TokenModule,
-        otpModule
+        otpModule,
+        SmsModule
     ],
     exports: [MongooseModule]
 })

@@ -76,30 +76,33 @@ export class User {
     role: 'admin' | 'user' | 'super-admin' | 'driver';
 
     @Prop({
-        type: { type: String, enum: ['Point'], default: 'Point' },
-        coordinates: { type: [Number], default: [0, 0] },
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point',
+        },
+        coordinates: {
+            type: [Number],
+            required: true,
+            default: [0, 0], // default to [lng, lat]
+        },
     })
-    location?: {
+    location: {
         type: string;
         coordinates: number[];
     };
 
-    @Prop({
-        type: Types.ObjectId,
-        ref: VehicleDetails.name
-    })
+    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name })
     vehicleDetails?: Types.ObjectId;
 
-    @Prop({
-        required: true,
-        default: false,
-    })
-    isVerified: boolean
+    @Prop({ required: true, default: false })
+    isVerified: boolean;
 
 }
 
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ location: '2dsphere' });
 
 export type PendingUserDocument = PendingUser & Document;
 @Schema({ timestamps: true })
@@ -135,7 +138,7 @@ export class PendingUser {
     refreshToken: string;
 
     @Prop()
-    otp?: string; 
+    otp?: string;
     @Prop()
     otpExpiresAt?: Date;
 

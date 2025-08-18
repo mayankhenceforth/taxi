@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
@@ -6,6 +6,8 @@ import { Model } from "mongoose";
 import { User, UserDocument } from "../schema/user.schema";
 import { Request } from "express";
 
+
+@Injectable()
 export class AuthGuards implements CanActivate {
     constructor(
         private jwtService: JwtService,
@@ -20,8 +22,11 @@ export class AuthGuards implements CanActivate {
         return authHeader.replace('Bearer ', '');
     }
     async canActivate(context: ExecutionContext): Promise<boolean> {
+        
         const request = context.switchToHttp().getRequest<Request>();
         const token = this.extractTokenFromHeader(request)
+
+    
 
         if (!token) throw new UnauthorizedException("Token is required")
 
@@ -31,6 +36,9 @@ export class AuthGuards implements CanActivate {
                 secret: this.configService.get('ACCESS_TOKEN_SECRET')
             })
             const user = await this.userModel.findById(payload?._id)
+            // console.log("user:",user);
+            
+            
 
             if (!user) {
                 throw new Error();

@@ -2,7 +2,6 @@ import { ApiProperty } from "@nestjs/swagger";
 import { IsNotEmpty } from "class-validator";
 
 export class CreateRideDto {
-
   @ApiProperty({ example: [76.687173,30.706533] })
   @IsNotEmpty()
   readonly pickupLocationCoordinates: [number, number];
@@ -14,5 +13,4 @@ export class CreateRideDto {
   @ApiProperty({ example: "bike" })
   @IsNotEmpty()
   readonly vehicleType: string;
-
 }

@@ -1,26 +1,84 @@
-import { Injectable } from '@nestjs/common';
-import { CreateDriverDto } from './dto/create-driver.dto';
-import { UpdateDriverDto } from './dto/update-driver.dto';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
+import { InjectModel } from '@nestjs/mongoose';
+import { User, UserDocument, VehicleDetails, VehicleDetailsDocument } from 'src/comman/schema/user.schema';
+import { Model } from 'mongoose';
 
-@Injectable()
-export class DriverService {
-  create(createDriverDto: CreateDriverDto) {
-    return 'This action adds a new driver';
-  }
+@Injectable() export class DriverService {
 
-  findAll() {
-    return `This action returns all driver`;
-  }
+  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(VehicleDetails.name) private readonly vehicleDetailsModel: Model<VehicleDetailsDocument>) { }
 
-  findOne(id: number) {
-    return `This action returns a #${id} driver`;
-  }
 
-  update(id: number, updateDriverDto: UpdateDriverDto) {
-    return `This action updates a #${id} driver`;
-  }
+  async setupDriverAccount(req: any, setupDriverAccountDto: SetupDriverAccountDto) {
+    const driverId = await req.user?._id
+    const driver = await this.userModel.findOne({
+      _id: driverId,
+      role: 'driver',
+    }).select("name _id contactNumber role createdAt profilePic");
 
-  remove(id: number) {
-    return `This action removes a #${id} driver`;
+    console.log("driver Infomation", driver)
+    if (!driver) {
+      throw new UnauthorizedException('Driver not found!');
+    }
+
+    console.log(driver)
+
+    const { coordinates, vehicleInfo } = setupDriverAccountDto;
+
+    if (
+      !coordinates ||
+      !Array.isArray(coordinates) ||
+      coordinates.length !== 2
+    ) {
+      throw new BadRequestException('Coordinates are required!');
+    }
+
+    if (
+      !vehicleInfo ||
+      !vehicleInfo?.type ||
+      !vehicleInfo?.numberPlate ||
+      !vehicleInfo?.model
+    ) {
+      throw new BadRequestException('Vehicle info is required!');
+    }
+
+    if (driver?.vehicleDetails) {
+      await this.vehicleDetailsModel.findByIdAndDelete(driver?.vehicleDetails);
+    }
+
+    const newVehicleDetails = await this.vehicleDetailsModel.create({
+      type: vehicleInfo?.type,
+      numberPlate: vehicleInfo?.numberPlate,
+      model: vehicleInfo?.model,
+    });
+
+    const updatedDriverInfo = await this.userModel
+      .findByIdAndUpdate(
+        driverId,
+        {
+          $set: {
+            location: {
+              type: 'Point',
+              coordinates,
+            },
+            vehicleDetails: newVehicleDetails?._id,
+          },
+        },
+        {
+          new: true,
+        },
+      )
+      .populate('vehicleDetails')
+      .select(
+        'location vehicleDetails name email contactNumber isEmailVerified isContactNumberVerified profilePic role',
+      );
+
+
+
+    return {
+      message: "Driver setUp Successfuly",
+      data: updatedDriverInfo
+    }
   }
-}
+}   
