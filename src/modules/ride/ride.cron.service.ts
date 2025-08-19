@@ -16,14 +16,12 @@ export class RideCronService {
 
     @InjectModel(Ride.name)
     private rideModel: Model<RideDocument>,
-  ) {}
+  ) { }
 
-  // Runs every 10 seconds to check rides
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async checkPendingRides() {
     const now = new Date();
 
-    // 1. Find rides older than 30 seconds with no driver assigned
     const ridesPendingDriver = await this.tempRideModel.find({
       createdAt: { $lte: new Date(now.getTime() - 30 * 1000) }, // 30 seconds
     });
@@ -32,10 +30,7 @@ export class RideCronService {
       this.logger.log(
         `Ride ${ride._id} has no driver after 30 seconds.`,
       );
-      // Optionally, notify user or driver here
     }
-
-    // 2. Find rides older than 3 minutes to terminate
     const ridesToTerminate = await this.tempRideModel.find({
       createdAt: { $lte: new Date(now.getTime() - 3 * 60 * 1000) }, // 3 minutes
     });
@@ -45,15 +40,39 @@ export class RideCronService {
         `Terminating ride ${ride._id} due to no driver response in 3 minutes.`,
       );
 
-      // Mark ride as terminated in Ride collection
       await this.rideModel.findByIdAndUpdate(ride._id, {
         status: 'terminated',
       });
-
-      // Delete temporary ride
       await this.tempRideModel.findByIdAndDelete(ride._id);
+      console.log(`Terminating ride ${ride._id} due to no driver response in 3 minutes.`);
+    }
 
-      // Optionally, notify user about termination
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkRideStart() {
+    const now = new Date();
+    const ridesToStart = await this.rideModel.find({
+      status: 'accepted',
+      updatedAt: { $lte: new Date(now.getTime() - 30* 60 * 1000) },
+    }).populate('driver bookedBy');
+    
+    if (ridesToStart.length === 0) {
+      this.logger.log(`No rides to start after 1 minutes of acceptance.`);
+      return;
+    }
+    this.logger.log(`Checking for rides to start after 1 minutes of acceptance...`);
+    for (const ride of ridesToStart) {
+      this.logger.log(
+        `Ride ${ride._id} is accepted but not started after 1 minutes.`,
+      )
+      await this.rideModel.findByIdAndUpdate(ride._id, {
+        status: 'started',
+
+      })
+      this.logger.log(`Ride ${ride._id} status updated to started.`);
+
+      console.log(`Ride ${ride._id} status updated to started.`);
     }
   }
 }

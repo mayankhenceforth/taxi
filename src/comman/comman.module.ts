@@ -5,6 +5,7 @@ import { PendingUser, PendingUserSchema, User, UserSchema } from "./schema/user.
 import { TokenModule } from './token/token.module';
 import { otpModule } from "./otp/otp.module";
 import { SmsModule } from "./sms/sms.module";
+import { PaymentModule } from './payment/payment.module';
 
 @Global()
 @Module({
@@ -20,7 +21,8 @@ import { SmsModule } from "./sms/sms.module";
         }]),
         TokenModule,
         otpModule,
-        SmsModule
+        SmsModule,
+        PaymentModule
     ],
     exports: [MongooseModule]
 })

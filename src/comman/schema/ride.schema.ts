@@ -51,6 +51,14 @@ export class Ride {
   status: string;
 
   @Prop({
+    required:true,
+    enum: ['paid', 'unpaid'],
+    default: 'unpaid',
+  })
+  paymentStatus: 'unpaid' | 'paid';
+
+
+  @Prop({
     type: { type: String, enum: ['Point'], default: 'Point' },
     coordinates: { type: [Number], default: [0, 0] },
   })
@@ -68,6 +76,11 @@ export class Ride {
     coordinates: number[];
   };
 
+  @Prop({ required: false })
+  otp: number
+
+  @Prop({ required: false })
+  cancelReason?: string;
 
 }
 
@@ -124,11 +137,16 @@ export class TemporaryRide {
     type: Number
   })
   fare: number;
+
+
   @Prop({
-    default: "processing"
+    required: true,
+    type: String,
+    enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'],
+    default: 'processing',
   })
-  status: string
-  
+  status: string;
+
   @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
   eligibleDrivers: Types.ObjectId[];
 

@@ -10,6 +10,9 @@ import { RoleGuards } from 'src/comman/guards/role.guards';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RideCronService } from './ride.cron.service';
+import { RideInvoiceService } from 'src/comman/Invoice/bill.ride';
+import { PaymentModule } from 'src/comman/payment/payment.module';
+import { PaymentService } from 'src/comman/payment/payment.service';
 
 @Module({
   imports: [
@@ -24,10 +27,11 @@ import { RideCronService } from './ride.cron.service';
     MongooseModule.forFeature([
       { name: Ride.name, schema: RideSchema },
       { name: User.name, schema: UserSchema },
-        { name: TemporaryRide.name, schema: TemporaryRideSchema }
+      { name: TemporaryRide.name, schema: TemporaryRideSchema }
     ]),
+    PaymentModule
   ],
   controllers: [RideController],
-  providers: [RideService, RideGateway, AuthGuards, RoleGuards,RideCronService],
+  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,RideInvoiceService],
 })
-export class RideModule {}
+export class RideModule { }
