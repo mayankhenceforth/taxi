@@ -1,10 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { raw } from 'express';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-    const config = new DocumentBuilder()
+
+  app.use('/stripe/webhook', bodyParser.raw({ type: 'application/json' }));
+
+  const config = new DocumentBuilder()
     .setTitle('Taxi Booking API')
     .setDescription('API documentation for Taxi Booking system')
     .setVersion('1.0')

@@ -43,6 +43,12 @@ export class Ride {
   distance: number;
 
   @Prop({
+    type: Number,
+    required: true
+  })
+  TotalFare: number;
+
+  @Prop({
     required: true,
     type: String,
     enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'],
@@ -51,11 +57,18 @@ export class Ride {
   status: string;
 
   @Prop({
-    required:true,
+    required: true,
     enum: ['paid', 'unpaid'],
     default: 'unpaid',
   })
   paymentStatus: 'unpaid' | 'paid';
+
+  @Prop({
+    enum: ['none', 'requested', 'processed'],
+    default: 'none',
+  })
+  refundStatus?: 'none' | 'requested' | 'processed';
+
 
 
   @Prop({
@@ -82,6 +95,18 @@ export class Ride {
   @Prop({ required: false })
   cancelReason?: string;
 
+  @Prop({
+    required: false,
+    enum: ['User', 'Driver']
+  })
+  cancelledBy?: 'User' | 'Driver';
+
+  @Prop({
+    type: Date,
+    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
+    index: { expires: 0 }
+  })
+  expiresAt: Date;
 }
 
 export const RideSchema = SchemaFactory.createForClass(Ride);

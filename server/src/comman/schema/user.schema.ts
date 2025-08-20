@@ -1,14 +1,11 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 
-
 export type UserDocument = User & Document;
-// export type UserModelPaginate = PaginateModel<UserDocument>;
-
 export type VehicleDetailsDocument = VehicleDetails & Document;
+
 @Schema()
 export class VehicleDetails {
-
     @Prop({
         required: true,
         unique: true,
@@ -33,7 +30,6 @@ export class VehicleDetails {
         type: String
     })
     model: string;
-
 }
 
 export const vehicleDetailsSchema = SchemaFactory.createForClass(VehicleDetails);
@@ -44,15 +40,15 @@ export class User {
         required: true,
         trim: true
     })
-    name: string
+    name: string;
 
     @Prop()
-    profilePic: string
+    profilePic: string;
 
     @Prop({
         required: true
     })
-    password: string
+    password: string;
 
     @Prop({
         required: true,
@@ -84,7 +80,7 @@ export class User {
         coordinates: {
             type: [Number],
             required: true,
-            default: [0, 0], // default to [lng, lat]
+            default: [0, 0],
         },
     })
     location: {
@@ -92,35 +88,34 @@ export class User {
         coordinates: number[];
     };
 
-    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name })
+    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name }) // Fixed reference
     vehicleDetails?: Types.ObjectId;
 
     @Prop({ required: true, default: false })
     isVerified: boolean;
-
 }
-
 
 export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ location: '2dsphere' });
 
 export type PendingUserDocument = PendingUser & Document;
+
 @Schema({ timestamps: true })
 export class PendingUser {
     @Prop({
         required: true,
         trim: true
     })
-    name: string
+    name: string;
 
     @Prop({ required: true })
-    contactNumber: number
+    contactNumber: number;
 
     @Prop({ required: true })
-    password: string
+    password: string;
 
     @Prop({ default: '' })
-    profilePic: string
+    profilePic: string;
 
     @Prop({
         required: true,
@@ -132,22 +127,22 @@ export class PendingUser {
         required: true,
         default: false,
     })
-    isVerified: boolean
+    isVerified: boolean;
 
     @Prop()
     refreshToken: string;
 
     @Prop()
     otp?: string;
+
     @Prop()
     otpExpiresAt?: Date;
 
     @Prop({
         type: Types.ObjectId,
-        ref: VehicleDetails.name
+        ref: VehicleDetails.name // Fixed reference
     })
     vehicleDetails?: Types.ObjectId;
-
 
     @Prop({
         default: Date.now,
@@ -157,6 +152,5 @@ export class PendingUser {
     })
     createdAt: Date;
 }
-
 
 export const PendingUserSchema = SchemaFactory.createForClass(PendingUser);

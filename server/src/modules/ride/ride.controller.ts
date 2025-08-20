@@ -8,20 +8,22 @@ import { AuthGuards } from 'src/comman/guards/auth.guards';
 import { RoleGuards } from 'src/comman/guards/role.guards';
 import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { cencelRideDto } from './dto/cencel-ride.dto';
-import { RideInvoiceService } from 'src/comman/Invoice/bill.ride';
 import { Response } from 'express';
+import { PaymentService } from 'src/comman/payment/payment.service';
+import { InvoiceService } from 'src/comman/invoice/invoice.service';
 
 @Controller('ride')
 export class RideController {
-  constructor(private readonly rideService: RideService
-              , private readonly RideInvoiceService: RideInvoiceService
-  ) { }
+  constructor(
+    private readonly rideService: RideService,
+    private readonly paymentService: PaymentService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
 
   @Post()
   @ApiBearerAuth()
   @Roles(Role.User)
   @UseGuards(AuthGuards, RoleGuards)
-
   create(@Req() request: any, @Body() createRideDto: CreateRideDto) {
     return this.rideService.createRide(request, createRideDto);
   }
@@ -29,7 +31,7 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.Driver)
   @UseGuards(AuthGuards, RoleGuards)
-  @Get("accept/:rideId")
+  @Get('accept/:rideId')
   handleAcceptRide(@Param('rideId') rideId: string, @Req() request: any) {
     return this.rideService.acceptRide(rideId, request);
   }
@@ -37,7 +39,7 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.Driver)
   @UseGuards(AuthGuards, RoleGuards)
-  @Patch("/:rideId/verify-otp")
+  @Patch('/:rideId/verify-otp')
   handleOtpRide(
     @Param('rideId') rideId: string,
     @Req() request: any,
@@ -49,7 +51,7 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.User, Role.Driver)
   @UseGuards(AuthGuards, RoleGuards)
-  @Post(":rideId/cancel")
+  @Post(':rideId/cancel')
   handleCancelRide(
     @Param('rideId') rideId: string,
     @Req() request: any,
@@ -64,19 +66,31 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.User)
   @UseGuards(AuthGuards, RoleGuards)
-  @Post(":rideId/payment")
-  handlePaymentRide(@Param('rideId') rideId: string,
- @Req() request: any,){
-    return this.rideService.paymentRide(rideId,request);
+  @Post(':rideId/payment')
+  async handlePaymentRide(
+    @Param('rideId') rideId: string,
+    @Req() request: any,
+  ) {
+    console.log("rideId:", rideId);
+    console.log("request:", request.user);
+    return this.rideService.paymentRide(rideId, request);
   }
 
-  // @Get('static-invoice')
-  // async getStaticInvoice(@Res() res: Response) {
-  //   const pdfBuffer = await this.RideInvoiceService.generateInvoice();
-  //   res.setHeader('Content-Type', 'application/pdf');
-  //   res.setHeader('Content-Disposition', `attachment; filename=ride_invoice_demo.pdf`);
-  //   res.send(pdfBuffer);
-  // }
+  @ApiBearerAuth()
+  @Roles(Role.User)
+  @UseGuards(AuthGuards, RoleGuards)
+  @Post(':rideId/confirm-payment')
+  async confirmRidePayment(
+    @Param('rideId') rideId: string,
+    @Res() res: Response,
+  ) {
+    const pdfBuffer = await this.rideService.confirmPayment(rideId);
 
-
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=invoice-${rideId}.pdf`,
+    );
+    res.end(pdfBuffer);
+  }
 }

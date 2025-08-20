@@ -12,6 +12,7 @@ import { RoleGuards } from './comman/guards/role.guards';
 import { GuardModule } from './comman/guards/guads.module';
 import { RideModule } from './modules/ride/ride.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PaymentModule } from './comman/payment/payment.module';
 
 @Module({
   imports: [
@@ -29,6 +30,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     DriverModule,
     SmsModule,
    GuardModule,
+   PaymentModule,
+  
   ],
 
 })

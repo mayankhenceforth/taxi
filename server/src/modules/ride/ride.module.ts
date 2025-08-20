@@ -10,9 +10,9 @@ import { RoleGuards } from 'src/comman/guards/role.guards';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RideCronService } from './ride.cron.service';
-import { RideInvoiceService } from 'src/comman/Invoice/bill.ride';
 import { PaymentModule } from 'src/comman/payment/payment.module';
 import { PaymentService } from 'src/comman/payment/payment.service';
+import { InvoiceModule } from 'src/comman/invoice/invoice.module';
 
 @Module({
   imports: [
@@ -29,9 +29,10 @@ import { PaymentService } from 'src/comman/payment/payment.service';
       { name: User.name, schema: UserSchema },
       { name: TemporaryRide.name, schema: TemporaryRideSchema }
     ]),
-    PaymentModule
+    PaymentModule,
+    InvoiceModule
   ],
   controllers: [RideController],
-  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,RideInvoiceService],
+  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService],
 })
 export class RideModule { }
