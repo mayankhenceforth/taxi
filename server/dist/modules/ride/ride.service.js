@@ -25,6 +25,7 @@ const twilio = require("twilio");
 const role_enum_1 = require("../../comman/enums/role.enum");
 const payment_service_1 = require("../../comman/payment/payment.service");
 const invoice_service_1 = require("../../comman/invoice/invoice.service");
+const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
 let RideService = class RideService {
     rideModel;
     TemporyRideModel;
@@ -32,15 +33,17 @@ let RideService = class RideService {
     rideGateway;
     paymentService;
     invoiceService;
+    cloudinaryService;
     rideTimers = new Map();
     twilioClient;
-    constructor(rideModel, TemporyRideModel, userModel, rideGateway, paymentService, invoiceService) {
+    constructor(rideModel, TemporyRideModel, userModel, rideGateway, paymentService, invoiceService, cloudinaryService) {
         this.rideModel = rideModel;
         this.TemporyRideModel = TemporyRideModel;
         this.userModel = userModel;
         this.rideGateway = rideGateway;
         this.paymentService = paymentService;
         this.invoiceService = invoiceService;
+        this.cloudinaryService = cloudinaryService;
         const accountSid = process.env.TWILIO_SID;
         const authToken = process.env.TWILIO_AUTH_TOKEN;
         this.twilioClient = twilio(accountSid, authToken);
@@ -309,6 +312,30 @@ let RideService = class RideService {
         ride.paymentStatus = 'paid';
         await ride.save();
         const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+        if (!pdfBuffer)
+            throw new common_1.BadRequestException('Failed to generate invoice');
+        if (ride.invoiceUrl) {
+            const oldPublicId = ride.invoiceUrl
+                .split('/upload/')[1]
+                .replace(/\.[^/.]+$/, "");
+            await this.cloudinaryService.deleteFile(oldPublicId);
+        }
+        const uploadResult = await this.cloudinaryService.uploadFile({
+            buffer: pdfBuffer,
+            originalname: `invoice-${rideId}.pdf`,
+        });
+        if (!uploadResult) {
+            throw new common_1.BadRequestException('Failed to upload invoice to cloud');
+        }
+        let baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
+        ride.invoiceUrl = baseUrl;
+        await ride.save();
+        console.log('Invoice URL:', baseUrl);
+        this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+            rideId: ride._id,
+            message: 'Payment confirmed successfully',
+            invoiceUrl: baseUrl
+        });
         return pdfBuffer;
     }
 };
@@ -323,6 +350,7 @@ exports.RideService = RideService = __decorate([
         mongoose_1.Model,
         ride_gateway_1.RideGateway,
         payment_service_1.PaymentService,
-        invoice_service_1.InvoiceService])
+        invoice_service_1.InvoiceService,
+        cloudinary_service_1.CloudinaryService])
 ], RideService);
 //# sourceMappingURL=ride.service.js.map

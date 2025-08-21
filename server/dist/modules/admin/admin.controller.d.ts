@@ -6,11 +6,7 @@ import { UpdateEntryDto } from './dto/update-admin.dto';
 export declare class AdminController {
     private readonly adminService;
     constructor(adminService: AdminService);
-    getUsers(getUsersDto: GetUsersDto): Promise<import("../../comman/helpers/api-response").default<(import("mongoose").Document<unknown, {}, import("../../comman/schema/user.schema").UserDocument, {}, {}> & import("../../comman/schema/user.schema").User & Document & {
-        _id: import("mongoose").Types.ObjectId;
-    } & {
-        __v: number;
-    })[]>>;
+    getUsers(getUsersDto: GetUsersDto): Promise<any[]>;
     createNewAdmin(createNewEntryDto: CreateNewEntryDto): Promise<import("../../comman/helpers/api-response").default<{
         _id: import("mongoose").Types.ObjectId;
     }>>;
@@ -25,4 +21,12 @@ export declare class AdminController {
     } & {
         __v: number;
     }) | null>>;
+    getRideDetails(): Promise<any[]>;
+    getTemporaryRideDetails(): Promise<any[]>;
+    getAllRideWithStatus(body: {
+        status: string;
+    }): Promise<{
+        status: string;
+        rides: any[];
+    }>;
 }

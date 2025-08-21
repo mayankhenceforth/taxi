@@ -8,6 +8,7 @@ import { Role } from 'src/comman/enums/role.enum';
 import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 export declare class RideService {
     private readonly rideModel;
     private readonly TemporyRideModel;
@@ -15,9 +16,10 @@ export declare class RideService {
     private readonly rideGateway;
     private readonly paymentService;
     private readonly invoiceService;
+    private readonly cloudinaryService;
     private rideTimers;
     private readonly twilioClient;
-    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService);
+    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
     private getDistanceKm;
     private getNearbyDrivers;
     private sendRideRequestToDrivers;

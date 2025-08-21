@@ -8,7 +8,9 @@ import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from 'src/comman/schema/user.schema';
-import { PaginateModel, Types } from 'mongoose';
+import { Model, PaginateModel, Types } from 'mongoose';
+import { Role } from 'src/comman/enums/role.enum';
+import { Ride, RideDocument, TemporaryRide, TemporaryRideDocument } from 'src/comman/schema/ride.schema';
 
 export type UserRole = 'super-admin' | 'admin' | 'user';
 
@@ -17,8 +19,11 @@ export class AdminService {
   constructor(
     @InjectModel(User.name)
     private userModel: PaginateModel<UserDocument>,
+    @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
+    @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
+
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   /** Seed the default super-admin account if not present */
   async seedSuperAdminData() {
@@ -54,27 +59,31 @@ export class AdminService {
   }
 
   /** Get paginated list of users */
-  async getUsersDetails(getUsersDto: GetUsersDto) {
-    const { limit = 10, page = 1 } = getUsersDto;
-
-    const users = await this.userModel.paginate(
-      {},
+  async getUsersDetails() {
+    return await this.userModel.aggregate([
       {
-        page: Number(page),
-        limit: Number(limit),
-        select:
-          '_id name contactNumber profilePic profilePicPublicId isContactNumberVerified role',
-        sort: { name: -1 },
+        $match: {
+          role: { $in: [Role.User, Role.Driver] }
+        }
       },
-    );
+      {
+        $group: {
+          _id: "$role",
+          users: { $push: "$$ROOT" }
+        }
+      },
+      {
+        $project: {
+          role: "$_id",
+          users: 1,
+          _id: 0
+        }
+      }
+    ]);
 
-    return new ApiResponse(
-      true,
-      'Users data fetched successfully!',
-      HttpStatus.OK,
-      users?.docs,
-    );
+
   }
+
 
   /** Create a new admin or user */
   async createNewEntry(
@@ -121,7 +130,7 @@ export class AdminService {
   /** Delete an entry by role */
   async deleteEntry(
     deleteEntryDto: DeleteEntryDto,
-    role: UserRole = 'user',
+    role: UserRole = 'admin',
   ) {
     const id = new Types.ObjectId(deleteEntryDto?._id);
 
@@ -188,4 +197,84 @@ export class AdminService {
       updatedEntry,
     );
   }
+
+  async getAllRideDetails() {
+
+    return await this.rideModel.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          rides: { $push: "$$ROOT" }
+        }
+      }
+    ])
+
+  }
+
+  async getAllTemporaryRideDetails() {
+    return await this.TemporyRideModel.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          rides: { $push: "$$ROOT" }
+        }
+      }
+    ])
+  }
+
+  async getAllRideWithStatus(status: string) {
+  if (!status) {
+    throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
+  }
+
+  const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    throw new HttpException(
+      `Invalid status provided. Allowed values are: ${allowedStatuses.join(', ')}`,
+      HttpStatus.BAD_REQUEST
+    );
+  }
+
+ 
+  const rides = await this.rideModel.aggregate([
+    { $match: { status } },
+    {
+      $lookup: {      
+        from: 'users',
+        localField: 'bookedBy',
+        foreignField: '_id',
+        as: 'bookedBy'
+      }
+    },
+    {
+      $lookup: {            
+        from: 'users',
+        localField: 'driver',
+        foreignField: '_id',
+        as: 'driver'
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        status: 1,
+        bookedBy: 1,
+        driver: 1,
+        pickupLocation: 1,
+        dropLocation: 1,
+        totalFare: 1,
+        cancelReason: 1,
+        cancelledBy: 1,
+        paymentStatus: 1,
+        refundStatus:1
+      }
+    }
+  ]);
+
+  return {
+    status,
+    rides
+  };
+}
+
 }

@@ -26,7 +26,11 @@ let CloudinaryService = class CloudinaryService {
     }
     async uploadFile(file) {
         return new Promise((resolve, reject) => {
-            const upload = cloudinary_1.v2.uploader.upload_stream({ folder: 'user_apis' }, (error, result) => {
+            const upload = cloudinary_1.v2.uploader.upload_stream({
+                folder: 'user_apis',
+                resource_type: 'raw',
+                public_id: file.originalname.replace(/\.[^/.]+$/, "")
+            }, (error, result) => {
                 if (error)
                     return reject(error);
                 resolve(result);
@@ -35,7 +39,7 @@ let CloudinaryService = class CloudinaryService {
         });
     }
     async deleteFile(publicId) {
-        return cloudinary_1.v2.uploader.destroy(publicId);
+        return cloudinary_1.v2.uploader.destroy(publicId, { resource_type: 'raw' });
     }
 };
 exports.CloudinaryService = CloudinaryService;

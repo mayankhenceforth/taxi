@@ -20,11 +20,17 @@ const config_1 = require("@nestjs/config");
 const bcrypt = require("bcrypt");
 const user_schema_1 = require("../../comman/schema/user.schema");
 const mongoose_2 = require("mongoose");
+const role_enum_1 = require("../../comman/enums/role.enum");
+const ride_schema_1 = require("../../comman/schema/ride.schema");
 let AdminService = class AdminService {
     userModel;
+    rideModel;
+    TemporyRideModel;
     configService;
-    constructor(userModel, configService) {
+    constructor(userModel, rideModel, TemporyRideModel, configService) {
         this.userModel = userModel;
+        this.rideModel = rideModel;
+        this.TemporyRideModel = TemporyRideModel;
         this.configService = configService;
     }
     async seedSuperAdminData() {
@@ -54,15 +60,27 @@ let AdminService = class AdminService {
             console.error(`Error occurred while seeding the admin data: ${error}`);
         }
     }
-    async getUsersDetails(getUsersDto) {
-        const { limit = 10, page = 1 } = getUsersDto;
-        const users = await this.userModel.paginate({}, {
-            page: Number(page),
-            limit: Number(limit),
-            select: '_id name contactNumber profilePic profilePicPublicId isContactNumberVerified role',
-            sort: { name: -1 },
-        });
-        return new api_response_1.default(true, 'Users data fetched successfully!', common_1.HttpStatus.OK, users?.docs);
+    async getUsersDetails() {
+        return await this.userModel.aggregate([
+            {
+                $match: {
+                    role: { $in: [role_enum_1.Role.User, role_enum_1.Role.Driver] }
+                }
+            },
+            {
+                $group: {
+                    _id: "$role",
+                    users: { $push: "$$ROOT" }
+                }
+            },
+            {
+                $project: {
+                    role: "$_id",
+                    users: 1,
+                    _id: 0
+                }
+            }
+        ]);
     }
     async createNewEntry(createNewEntryDto, role = 'user') {
         const existingUser = await this.userModel.findOne({
@@ -83,7 +101,7 @@ let AdminService = class AdminService {
         const roleInSentenceCase = role.charAt(0).toUpperCase() + role.slice(1);
         return new api_response_1.default(true, `${roleInSentenceCase} created successfully!`, common_1.HttpStatus.CREATED, { _id: newEntry._id });
     }
-    async deleteEntry(deleteEntryDto, role = 'user') {
+    async deleteEntry(deleteEntryDto, role = 'admin') {
         const id = new mongoose_2.Types.ObjectId(deleteEntryDto?._id);
         const existingUser = await this.userModel.findOne({ _id: id, role });
         const roleInSentenceCase = role.charAt(0).toUpperCase() + role.slice(1);
@@ -108,11 +126,82 @@ let AdminService = class AdminService {
             .select('_id name contactNumber profilePic profilePicPublicId isContactNumberVerified role');
         return new api_response_1.default(true, `${roleInSentenceCase} updated successfully!`, common_1.HttpStatus.OK, updatedEntry);
     }
+    async getAllRideDetails() {
+        return await this.rideModel.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    rides: { $push: "$$ROOT" }
+                }
+            }
+        ]);
+    }
+    async getAllTemporaryRideDetails() {
+        return await this.TemporyRideModel.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    rides: { $push: "$$ROOT" }
+                }
+            }
+        ]);
+    }
+    async getAllRideWithStatus(status) {
+        if (!status) {
+            throw new common_1.HttpException('Status is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled'];
+        if (!allowedStatuses.includes(status)) {
+            throw new common_1.HttpException(`Invalid status provided. Allowed values are: ${allowedStatuses.join(', ')}`, common_1.HttpStatus.BAD_REQUEST);
+        }
+        const rides = await this.rideModel.aggregate([
+            { $match: { status } },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'bookedBy',
+                    foreignField: '_id',
+                    as: 'bookedBy'
+                }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'driver',
+                    foreignField: '_id',
+                    as: 'driver'
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    status: 1,
+                    bookedBy: 1,
+                    driver: 1,
+                    pickupLocation: 1,
+                    dropLocation: 1,
+                    totalFare: 1,
+                    cancelReason: 1,
+                    cancelledBy: 1,
+                    paymentStatus: 1,
+                    refundStatus: 1
+                }
+            }
+        ]);
+        return {
+            status,
+            rides
+        };
+    }
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
-    __metadata("design:paramtypes", [Object, config_1.ConfigService])
+    __param(1, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
+    __param(2, (0, mongoose_1.InjectModel)(ride_schema_1.TemporaryRide.name)),
+    __metadata("design:paramtypes", [Object, mongoose_2.Model,
+        mongoose_2.Model,
+        config_1.ConfigService])
 ], AdminService);
 //# sourceMappingURL=admin.service.js.map

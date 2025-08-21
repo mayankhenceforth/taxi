@@ -6,7 +6,7 @@ import { Roles } from 'src/comman/decorator/role.decorator';
 import { AuthGuards } from 'src/comman/guards/auth.guards';
 import { RoleGuards} from 'src/comman/guards/role.guards';
 import { Role } from 'src/comman/enums/role.enum';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
 import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
 
@@ -20,7 +20,7 @@ export class AdminController {
   @Get('users')
   @Roles(Role.Admin,Role.SuperAdmin)
   getUsers(@Query() getUsersDto : GetUsersDto){
-    return this.adminService.getUsersDetails(getUsersDto);
+    return this.adminService.getUsersDetails();
   }
 
   @Post("create-admin")
@@ -60,4 +60,33 @@ export class AdminController {
     return this.adminService.updateEntry(updateEntryDto,Role.User);
   }
 
+  @Get("all_ride")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  getRideDetails() {
+    return this.adminService.getAllRideDetails();
+  }
+
+  @Get("all_temp_ride")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  getTemporaryRideDetails() {
+    return this.adminService.getAllTemporaryRideDetails();
+
+  }
+
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', example: 'completed' }  // Example status
+      },
+      required: ['status'],
+    },
+  })
+  @Post("all_ride_with_status")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  getAllRideWithStatus(
+    @Body() body: { status: string }
+  ) {
+    return this.adminService.getAllRideWithStatus(body.status);
+  }
 }

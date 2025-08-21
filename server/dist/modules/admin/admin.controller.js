@@ -30,7 +30,7 @@ let AdminController = class AdminController {
         this.adminService = adminService;
     }
     getUsers(getUsersDto) {
-        return this.adminService.getUsersDetails(getUsersDto);
+        return this.adminService.getUsersDetails();
     }
     createNewAdmin(createNewEntryDto) {
         return this.adminService.createNewEntry(createNewEntryDto, role_enum_1.Role.Admin);
@@ -49,6 +49,15 @@ let AdminController = class AdminController {
     }
     updateUserDetails(updateEntryDto) {
         return this.adminService.updateEntry(updateEntryDto, role_enum_1.Role.User);
+    }
+    getRideDetails() {
+        return this.adminService.getAllRideDetails();
+    }
+    getTemporaryRideDetails() {
+        return this.adminService.getAllTemporaryRideDetails();
+    }
+    getAllRideWithStatus(body) {
+        return this.adminService.getAllRideWithStatus(body.status);
     }
 };
 exports.AdminController = AdminController;
@@ -108,6 +117,37 @@ __decorate([
     __metadata("design:paramtypes", [update_admin_dto_1.UpdateEntryDto]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "updateUserDetails", null);
+__decorate([
+    (0, common_1.Get)("all_ride"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getRideDetails", null);
+__decorate([
+    (0, common_1.Get)("all_temp_ride"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getTemporaryRideDetails", null);
+__decorate([
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                status: { type: 'string', example: 'completed' }
+            },
+            required: ['status'],
+        },
+    }),
+    (0, common_1.Post)("all_ride_with_status"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getAllRideWithStatus", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),

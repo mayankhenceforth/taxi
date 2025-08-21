@@ -19,12 +19,14 @@ import { Role } from 'src/comman/enums/role.enum';
 import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 
 @Injectable()
 export class RideService {
   private rideTimers: Map<string, { userTimeout: NodeJS.Timeout; driverTimeouts: NodeJS.Timeout[] }> = new Map();
 
   private readonly twilioClient;
+
 
   constructor(
     @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
@@ -33,6 +35,7 @@ export class RideService {
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {
     const accountSid = process.env.TWILIO_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -349,13 +352,50 @@ const totalFare = Math.round(baseFare + tax);
   }
 
   async confirmPayment(rideId: string): Promise<Buffer> {
-    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-    if (!ride) throw new NotFoundException('Ride not found');
+  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+  if (!ride) throw new NotFoundException('Ride not found');
 
-    ride.paymentStatus = 'paid';
-    await ride.save();
+  ride.paymentStatus = 'paid';
+  await ride.save();
 
-    const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-    return pdfBuffer;
+  const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+  if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
+
+  if (ride.invoiceUrl) {
+    const oldPublicId = ride.invoiceUrl
+      .split('/upload/')[1] 
+      .replace(/\.[^/.]+$/, "");
+    await this.cloudinaryService.deleteFile(oldPublicId);
   }
+
+  const uploadResult = await this.cloudinaryService.uploadFile({
+    buffer: pdfBuffer,
+    originalname: `invoice-${rideId}.pdf`,
+  });
+
+  if (!uploadResult) {
+    throw new BadRequestException('Failed to upload invoice to cloud');
+  }
+
+  
+  let baseUrl = uploadResult.secure_url.replace(
+    '/upload/',
+    '/upload/fl_attachment:false/'
+  );
+
+  ride.invoiceUrl = baseUrl;
+  await ride.save();
+
+  console.log('Invoice URL:', baseUrl);
+
+ 
+  this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+    rideId: ride._id,
+    message: 'Payment confirmed successfully',
+    invoiceUrl: baseUrl
+  });
+
+  return pdfBuffer;
+}
+
 }
