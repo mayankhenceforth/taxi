@@ -1,0 +1,33 @@
+import { RideDocument, TemporaryRideDocument } from '../../comman/schema/ride.schema';
+import { Model } from 'mongoose';
+import ApiResponse from 'src/comman/helpers/api-response';
+import { CreateRideDto } from './dto/create-ride.dto';
+import { RideGateway } from './ride.gateway';
+import { UserDocument } from 'src/comman/schema/user.schema';
+import { Role } from 'src/comman/enums/role.enum';
+import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
+import { PaymentService } from 'src/comman/payment/payment.service';
+import { InvoiceService } from 'src/comman/invoice/invoice.service';
+export declare class RideService {
+    private readonly rideModel;
+    private readonly TemporyRideModel;
+    private readonly userModel;
+    private readonly rideGateway;
+    private readonly paymentService;
+    private readonly invoiceService;
+    private rideTimers;
+    private readonly farePrice;
+    private readonly farePriceWithGST;
+    private readonly twilioClient;
+    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService);
+    private getDistanceKm;
+    private getNearbyDrivers;
+    private sendRideRequestToDrivers;
+    private clearRideTimers;
+    createRide(request: any, createRideDto: CreateRideDto): Promise<ApiResponse<any>>;
+    acceptRide(rideId: string, request: any): Promise<ApiResponse<any>>;
+    verifyRideOtp(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto, role: Role): Promise<ApiResponse<any>>;
+    cencelRide(rideId: string, request: any, reason: string): Promise<ApiResponse<any>>;
+    paymentRide(rideId: string, request: any): Promise<ApiResponse<any>>;
+    confirmPayment(rideId: string): Promise<Buffer>;
+}
