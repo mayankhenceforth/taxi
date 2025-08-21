@@ -21,6 +21,7 @@ export declare class Ride {
     otp: number;
     cancelReason?: string;
     cancelledBy?: 'User' | 'Driver';
+    invoiceUrl?: string;
     expiresAt: Date;
 }
 export declare const RideSchema: import("mongoose").Schema<Ride, import("mongoose").Model<Ride, any, any, any, Document<unknown, any, Ride, any, {}> & Ride & {

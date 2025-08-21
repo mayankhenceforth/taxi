@@ -18,7 +18,7 @@ export class RideController {
     private readonly rideService: RideService,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiBearerAuth()
@@ -66,7 +66,7 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.User)
   @UseGuards(AuthGuards, RoleGuards)
-  @Post(':rideId/payment')
+  @Get(':rideId/payment')
   async handlePaymentRide(
     @Param('rideId') rideId: string,
     @Req() request: any,
@@ -79,7 +79,7 @@ export class RideController {
   @ApiBearerAuth()
   @Roles(Role.User)
   @UseGuards(AuthGuards, RoleGuards)
-  @Post(':rideId/confirm-payment')
+  @Get(':rideId/confirm-payment')
   async confirmRidePayment(
     @Param('rideId') rideId: string,
     @Res() res: Response,
@@ -93,4 +93,6 @@ export class RideController {
     );
     res.end(pdfBuffer);
   }
+
+
 }

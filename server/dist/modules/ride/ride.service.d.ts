@@ -16,8 +16,6 @@ export declare class RideService {
     private readonly paymentService;
     private readonly invoiceService;
     private rideTimers;
-    private readonly farePrice;
-    private readonly farePriceWithGST;
     private readonly twilioClient;
     constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService);
     private getDistanceKm;

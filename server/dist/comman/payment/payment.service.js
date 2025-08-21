@@ -20,16 +20,18 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const ride_schema_1 = require("../schema/ride.schema");
 const invoice_service_1 = require("../invoice/invoice.service");
-const fs = require("fs");
+const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
 let PaymentService = class PaymentService {
     configService;
     rideModel;
     invoiceService;
+    cloudinaryService;
     stripe;
-    constructor(configService, rideModel, invoiceService) {
+    constructor(configService, rideModel, invoiceService, cloudinaryService) {
         this.configService = configService;
         this.rideModel = rideModel;
         this.invoiceService = invoiceService;
+        this.cloudinaryService = cloudinaryService;
         this.stripe = new stripe_1.default(this.configService.get('STRIPE_SECRET_KEY'), {});
     }
     async createCheckoutSession(successUrl, cancelUrl, totalAmount, rideId) {
@@ -62,27 +64,17 @@ let PaymentService = class PaymentService {
                     const session = event.data.object;
                     const rideId = session.metadata?.rideId;
                     if (rideId) {
-                        await this.rideModel.findByIdAndUpdate(rideId, { paymentStatus: 'paid' });
                         const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-                        const invoicePath = `invoices/invoice_${rideId}.pdf`;
-                        fs.writeFileSync(invoicePath, pdfBuffer);
-                        console.log(`✅ Invoice generated for Ride ${rideId}`);
-                    }
-                    break;
-                }
-                case 'payment_intent.payment_failed': {
-                    const intent = event.data.object;
-                    const rideId = intent.metadata?.rideId;
-                    if (rideId) {
-                        await this.rideModel.findByIdAndUpdate(rideId, { paymentStatus: 'unpaid' });
-                    }
-                    break;
-                }
-                case 'charge.refunded': {
-                    const charge = event.data.object;
-                    const rideId = charge.metadata?.rideId;
-                    if (rideId) {
-                        await this.rideModel.findByIdAndUpdate(rideId, { refundStatus: 'processed' });
+                        const uploadResult = await this.cloudinaryService.uploadFile({
+                            buffer: pdfBuffer,
+                            originalname: `invoice_${rideId}.pdf`,
+                            mimetype: 'application/pdf'
+                        });
+                        await this.rideModel.findByIdAndUpdate(rideId, {
+                            paymentStatus: 'paid',
+                            invoiceUrl: uploadResult.secure_url
+                        });
+                        console.log(`✅ Invoice generated and uploaded for Ride ${rideId}`);
                     }
                     break;
                 }
@@ -206,6 +198,7 @@ exports.PaymentService = PaymentService = __decorate([
     __param(1, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
     __metadata("design:paramtypes", [config_1.ConfigService,
         mongoose_2.Model,
-        invoice_service_1.InvoiceService])
+        invoice_service_1.InvoiceService,
+        cloudinary_service_1.CloudinaryService])
 ], PaymentService);
 //# sourceMappingURL=payment.service.js.map

@@ -22,6 +22,8 @@ const ride_cron_service_1 = require("./ride.cron.service");
 const payment_module_1 = require("../../comman/payment/payment.module");
 const payment_service_1 = require("../../comman/payment/payment.service");
 const invoice_module_1 = require("../../comman/invoice/invoice.module");
+const cloudinary_module_1 = require("../../comman/cloudinary/cloudinary.module");
+const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
 let RideModule = class RideModule {
 };
 exports.RideModule = RideModule;
@@ -42,10 +44,11 @@ exports.RideModule = RideModule = __decorate([
                 { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema }
             ]),
             payment_module_1.PaymentModule,
-            invoice_module_1.InvoiceModule
+            invoice_module_1.InvoiceModule,
+            cloudinary_module_1.CloudinaryModule
         ],
         controllers: [ride_controller_1.RideController],
-        providers: [ride_service_1.RideService, ride_gateway_1.RideGateway, payment_service_1.PaymentService, auth_guards_1.AuthGuards, role_guards_1.RoleGuards, ride_cron_service_1.RideCronService],
+        providers: [ride_service_1.RideService, ride_gateway_1.RideGateway, payment_service_1.PaymentService, auth_guards_1.AuthGuards, role_guards_1.RoleGuards, ride_cron_service_1.RideCronService, cloudinary_service_1.CloudinaryService],
     })
 ], RideModule);
 //# sourceMappingURL=ride.module.js.map

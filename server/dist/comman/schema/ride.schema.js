@@ -28,6 +28,7 @@ let Ride = class Ride {
     otp;
     cancelReason;
     cancelledBy;
+    invoiceUrl;
     expiresAt;
 };
 exports.Ride = Ride;
@@ -129,6 +130,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Ride.prototype, "cancelledBy", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", String)
+], Ride.prototype, "invoiceUrl", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         type: Date,

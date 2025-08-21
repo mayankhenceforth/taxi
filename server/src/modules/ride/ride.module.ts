@@ -13,6 +13,8 @@ import { RideCronService } from './ride.cron.service';
 import { PaymentModule } from 'src/comman/payment/payment.module';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceModule } from 'src/comman/invoice/invoice.module';
+import { CloudinaryModule } from 'src/comman/cloudinary/cloudinary.module';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 
 @Module({
   imports: [
@@ -30,9 +32,10 @@ import { InvoiceModule } from 'src/comman/invoice/invoice.module';
       { name: TemporaryRide.name, schema: TemporaryRideSchema }
     ]),
     PaymentModule,
-    InvoiceModule
+    InvoiceModule,
+    CloudinaryModule
   ],
   controllers: [RideController],
-  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService],
+  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,CloudinaryService],
 })
 export class RideModule { }

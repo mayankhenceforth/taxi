@@ -9,6 +9,5 @@ export declare class InvoiceService {
     constructor(rideModel: Model<RideDocument>, userModel: Model<UserDocument>, configService: ConfigService);
     generateInvoice(rideId: string): Promise<Buffer>;
     private generateQRCode;
-    private formatCoordinates;
     private generateInvoiceNumber;
 }

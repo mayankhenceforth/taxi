@@ -3,12 +3,14 @@ import Stripe from 'stripe';
 import { Model } from 'mongoose';
 import { RideDocument } from '../schema/ride.schema';
 import { InvoiceService } from '../invoice/invoice.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 export declare class PaymentService {
     private readonly configService;
     private readonly rideModel;
     private readonly invoiceService;
+    private readonly cloudinaryService;
     private stripe;
-    constructor(configService: ConfigService, rideModel: Model<RideDocument>, invoiceService: InvoiceService);
+    constructor(configService: ConfigService, rideModel: Model<RideDocument>, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
     createCheckoutSession(successUrl: string, cancelUrl: string, totalAmount: number, rideId: string): Promise<string | null>;
     handleWebhook(rawBody: Buffer, sig: string): Promise<{
         received: boolean;
