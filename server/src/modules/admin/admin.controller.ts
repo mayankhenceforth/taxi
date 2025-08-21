@@ -89,4 +89,5 @@ export class AdminController {
   ) {
     return this.adminService.getAllRideWithStatus(body.status);
   }
+  
 }
