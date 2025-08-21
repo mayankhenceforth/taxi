@@ -6,7 +6,7 @@ import { Roles } from 'src/comman/decorator/role.decorator';
 import { AuthGuards } from 'src/comman/guards/auth.guards';
 import { RoleGuards} from 'src/comman/guards/role.guards';
 import { Role } from 'src/comman/enums/role.enum';
-import { ApiBearerAuth, ApiBody, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
 
@@ -88,6 +88,31 @@ export class AdminController {
     @Body() body: { status: string }
   ) {
     return this.adminService.getAllRideWithStatus(body.status);
+  }
+
+
+
+  @Get("ride_invoice/:rideId")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  @ApiParam({ name: 'rideId', type: String, description: 'ID of the ride to fetch invoice for' })
+  getRideInvoice(@Param('rideId') rideId: string) {
+    return this.adminService.getRideInvoice(rideId);
+  }
+
+   @Get("get_total_earning")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  @ApiOperation({ summary: 'Get total earnings with filter' })
+  @ApiQuery({ name: 'filter', enum: ['last_hour','1_day','10_days','1_month'], required: true })
+  async getTotalEarning(@Query('filter') filter: string) {
+    return this.adminService.getTotalEarning(filter);
+  }
+
+  @Get('generate_invoice')
+  @Roles(Role.Admin, Role.SuperAdmin)
+  @ApiOperation({ summary: 'Generate invoice PDF for filtered earnings' })
+  @ApiQuery({ name: 'filter', enum: ['last_hour','1_day','10_days','1_month'], required: true })
+  async generateInvoice(@Query('filter') filter: string) {
+    return this.adminService.generateEarningInvoice(filter);
   }
   
 }

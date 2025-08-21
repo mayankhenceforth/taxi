@@ -29,4 +29,7 @@ export declare class AdminController {
         status: string;
         rides: any[];
     }>;
+    getRideInvoice(rideId: string): Promise<string | undefined>;
+    getTotalEarning(filter: string): Promise<any>;
+    generateInvoice(filter: string): Promise<string>;
 }

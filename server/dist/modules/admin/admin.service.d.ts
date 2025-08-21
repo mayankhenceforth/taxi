@@ -6,13 +6,16 @@ import { UpdateEntryDto } from './dto/update-admin.dto';
 import { User, UserDocument } from 'src/comman/schema/user.schema';
 import { Model, PaginateModel, Types } from 'mongoose';
 import { RideDocument, TemporaryRideDocument } from 'src/comman/schema/ride.schema';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 export type UserRole = 'super-admin' | 'admin' | 'user';
 export declare class AdminService {
     private userModel;
     private readonly rideModel;
     private readonly TemporyRideModel;
     private configService;
-    constructor(userModel: PaginateModel<UserDocument>, rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, configService: ConfigService);
+    private readonly cloudinaryService;
+    constructor(userModel: PaginateModel<UserDocument>, rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, configService: ConfigService, cloudinaryService: CloudinaryService);
+    private getDateFilter;
     seedSuperAdminData(): Promise<void>;
     getUsersDetails(): Promise<any[]>;
     createNewEntry(createNewEntryDto: CreateNewEntryDto, role?: UserRole): Promise<ApiResponse<{
@@ -30,4 +33,8 @@ export declare class AdminService {
         status: string;
         rides: any[];
     }>;
+    getRideInvoice(rideId: string): Promise<string | undefined>;
+    getTotalEarning(filter: string): Promise<any>;
+    generateEarningInvoice(filter: string): Promise<string>;
+    private generateQRCode;
 }

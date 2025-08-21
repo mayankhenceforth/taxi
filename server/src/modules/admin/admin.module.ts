@@ -5,6 +5,7 @@ import { JwtModule, JwtService } from '@nestjs/jwt';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ride, RideSchema, TemporaryRide, TemporaryRideSchema } from 'src/comman/schema/ride.schema';
 import { User, UserSchema } from 'src/comman/schema/user.schema';
+import { CloudinaryModule } from 'src/comman/cloudinary/cloudinary.module';
 
 @Module({
   imports:[
@@ -15,6 +16,7 @@ import { User, UserSchema } from 'src/comman/schema/user.schema';
               { name: User.name, schema: UserSchema },
               { name: TemporaryRide.name, schema: TemporaryRideSchema }
             ]),
+            CloudinaryModule
   ],
   controllers: [AdminController],
   providers: [AdminService],

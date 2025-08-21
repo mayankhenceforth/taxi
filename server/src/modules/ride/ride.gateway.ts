@@ -30,6 +30,7 @@ export class RideGateway {
         if (userSocketId) {
             this.server.to(userSocketId).emit('ride-accepted', rideDetails);
         }
+        
     }
 
     sendRideTerminated(userId: string, rideDetails: any) {

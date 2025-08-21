@@ -59,6 +59,15 @@ let AdminController = class AdminController {
     getAllRideWithStatus(body) {
         return this.adminService.getAllRideWithStatus(body.status);
     }
+    getRideInvoice(rideId) {
+        return this.adminService.getRideInvoice(rideId);
+    }
+    async getTotalEarning(filter) {
+        return this.adminService.getTotalEarning(filter);
+    }
+    async generateInvoice(filter) {
+        return this.adminService.generateEarningInvoice(filter);
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -148,6 +157,35 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getAllRideWithStatus", null);
+__decorate([
+    (0, common_1.Get)("ride_invoice/:rideId"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiParam)({ name: 'rideId', type: String, description: 'ID of the ride to fetch invoice for' }),
+    __param(0, (0, common_1.Param)('rideId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "getRideInvoice", null);
+__decorate([
+    (0, common_1.Get)("get_total_earning"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({ summary: 'Get total earnings with filter' }),
+    (0, swagger_1.ApiQuery)({ name: 'filter', enum: ['last_hour', '1_day', '10_days', '1_month'], required: true }),
+    __param(0, (0, common_1.Query)('filter')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getTotalEarning", null);
+__decorate([
+    (0, common_1.Get)('generate_invoice'),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate invoice PDF for filtered earnings' }),
+    (0, swagger_1.ApiQuery)({ name: 'filter', enum: ['last_hour', '1_day', '10_days', '1_month'], required: true }),
+    __param(0, (0, common_1.Query)('filter')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "generateInvoice", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),

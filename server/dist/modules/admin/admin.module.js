@@ -14,6 +14,7 @@ const jwt_1 = require("@nestjs/jwt");
 const mongoose_1 = require("@nestjs/mongoose");
 const ride_schema_1 = require("../../comman/schema/ride.schema");
 const user_schema_1 = require("../../comman/schema/user.schema");
+const cloudinary_module_1 = require("../../comman/cloudinary/cloudinary.module");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
@@ -26,6 +27,7 @@ exports.AdminModule = AdminModule = __decorate([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema }
             ]),
+            cloudinary_module_1.CloudinaryModule
         ],
         controllers: [admin_controller_1.AdminController],
         providers: [admin_service_1.AdminService],

@@ -22,16 +22,37 @@ const user_schema_1 = require("../../comman/schema/user.schema");
 const mongoose_2 = require("mongoose");
 const role_enum_1 = require("../../comman/enums/role.enum");
 const ride_schema_1 = require("../../comman/schema/ride.schema");
+const number_to_words_1 = require("number-to-words");
+const puppeteer = require("puppeteer");
+const QRCode = require("qrcode");
+const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
 let AdminService = class AdminService {
     userModel;
     rideModel;
     TemporyRideModel;
     configService;
-    constructor(userModel, rideModel, TemporyRideModel, configService) {
+    cloudinaryService;
+    constructor(userModel, rideModel, TemporyRideModel, configService, cloudinaryService) {
         this.userModel = userModel;
         this.rideModel = rideModel;
         this.TemporyRideModel = TemporyRideModel;
         this.configService = configService;
+        this.cloudinaryService = cloudinaryService;
+    }
+    getDateFilter(filter) {
+        const now = new Date();
+        switch (filter) {
+            case 'last_hour':
+                return new Date(now.getTime() - 60 * 60 * 1000);
+            case '1_day':
+                return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            case '10_days':
+                return new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+            case '1_month':
+                return new Date(now.setMonth(now.getMonth() - 1));
+            default:
+                throw new common_1.BadRequestException('Invalid filter');
+        }
     }
     async seedSuperAdminData() {
         try {
@@ -193,6 +214,101 @@ let AdminService = class AdminService {
             rides
         };
     }
+    async getRideInvoice(rideId) {
+        if (!rideId) {
+            throw new common_1.HttpException('Ride ID is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        const ride = await this.rideModel.findById(rideId);
+        if (!ride) {
+            throw new common_1.HttpException('Ride not found', common_1.HttpStatus.NOT_FOUND);
+        }
+        return ride.invoiceUrl;
+    }
+    async getTotalEarning(filter) {
+        const fromDate = this.getDateFilter(filter);
+        const result = await this.rideModel.aggregate([
+            { $match: { status: 'completed', createdAt: { $gte: fromDate } } },
+            {
+                $group: {
+                    _id: null,
+                    totalEarning: { $sum: "$totalFare" },
+                    rides: { $push: "$$ROOT" }
+                }
+            }
+        ]);
+        return result[0] || { totalEarning: 0, rides: [] };
+    }
+    async generateEarningInvoice(filter) {
+        const data = await this.getTotalEarning(filter);
+        const html = `
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          th { background: #f0f0f0; }
+        </style>
+      </head>
+      <body>
+        <h2>Taxi App Earnings Report</h2>
+        <p>Filter: <strong>${filter}</strong></p>
+        <p>Total Earnings: <strong>$${data.totalEarning}</strong> (${(0, number_to_words_1.toWords)(data.totalEarning)})</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Ride ID</th>
+              <th>User</th>
+              <th>Driver</th>
+              <th>Fare</th>
+              <th>Pickup</th>
+              <th>Drop</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.rides.map(ride => `
+              <tr>
+                <td>${ride._id}</td>
+                <td>${ride.bookedBy}</td>
+                <td>${ride.driver}</td>
+                <td>${ride.totalFare}</td>
+                <td>${ride.pickupLocation}</td>
+                <td>${ride.dropLocation}</td>
+                <td>${new Date(ride.createdAt).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+    </html>
+  `;
+        const browser = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        const pdfUint8Array = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '15mm', right: '15mm', bottom: '15mm', left: '15mm' },
+        });
+        await browser.close();
+        const pdfBuffer = Buffer.from(pdfUint8Array);
+        const uploadResult = await this.cloudinaryService.uploadFile({
+            buffer: pdfBuffer,
+            originalname: `earning_invoice_${filter}.pdf`
+        });
+        if (!uploadResult || !uploadResult.secure_url) {
+            throw new common_1.HttpException('Failed to upload invoice to Cloudinary', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return uploadResult.secure_url;
+    }
+    async generateQRCode(ride) {
+        const qrText = `Ride ID: ${ride._id}\nUser: ${ride.bookedBy}\nDriver: ${ride.driver}\nFare: ₹${ride.totalFare}\nDate: ${new Date(ride.createdAt).toLocaleDateString()}`;
+        return await QRCode.toDataURL(qrText, { width: 100, margin: 2, color: { dark: '#fcad02', light: '#ffffff' } });
+    }
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([
@@ -202,6 +318,7 @@ exports.AdminService = AdminService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(ride_schema_1.TemporaryRide.name)),
     __metadata("design:paramtypes", [Object, mongoose_2.Model,
         mongoose_2.Model,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        cloudinary_service_1.CloudinaryService])
 ], AdminService);
 //# sourceMappingURL=admin.service.js.map
