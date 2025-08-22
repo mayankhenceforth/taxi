@@ -3,6 +3,7 @@ import {
   BadRequestException,
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { DriverService } from '../driver/driver.service';
 
 @Injectable()
 export class RideService {
@@ -36,6 +38,7 @@ export class RideService {
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly driverService :DriverService
   ) {
     const accountSid = process.env.TWILIO_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -324,24 +327,8 @@ const totalFare = Math.round(baseFare + tax);
     if (ride.status !== 'started') throw new BadRequestException('Ride is not in a state to pay for');
     if (ride.paymentStatus === 'paid') throw new BadRequestException('Ride already paid');
 
-    // Vehicle-specific fare & GST
-    let farePerKm: number;
-    let gstPercent: number;
-    switch (ride.vehicleType) {
-      case 'bike':
-        farePerKm = parseFloat(process.env.RIDE_FARE ?? '10');
-        gstPercent = parseFloat(process.env.RIDE_BIKE_GST ?? '10');
-        break;
-      case 'car':
-        farePerKm = parseFloat(process.env.RIDE_CAR_FARE ?? '20');
-        gstPercent = parseFloat(process.env.RIDE_CAR_GST ?? '12');
-        break;
-      default:
-        throw new BadRequestException('Invalid vehicle type');
-    }
-
-    const baseFare = ride.distance * farePerKm;
-    const totalAmount = Math.round(baseFare * (1 + gstPercent / 100));
+  
+    const totalAmount = ride.TotalFare;
 
     const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
     const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
@@ -398,4 +385,60 @@ const totalFare = Math.round(baseFare + tax);
   return pdfBuffer;
 }
 
+   async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
+  if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid rideId');
+  
+  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+  if (!ride) throw new NotFoundException('Ride not found');
+
+  const user = request.user;
+  if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
+    throw new UnauthorizedException('Not authorized');
+
+  if (ride.paymentStatus !== 'paid') 
+    throw new BadRequestException('Ride not complete, payment not completed');
+
+  if (ride.status === "cancelled") 
+    throw new BadRequestException("Ride cannot be completed as it was cancelled");
+
+  const session = await this.rideModel.db.startSession();
+  session.startTransaction();
+
+  try {
+    ride.status = 'completed';
+    ride.completedAt = new Date();
+    await ride.save({ session });
+
+    const driverEarnings = await this.driverService.updateDriverEarnings(
+      ride._id as Types.ObjectId,
+      ride.driver._id as Types.ObjectId,
+      ride.TotalFare * 0.8
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+      rideId: ride._id,
+      message: 'Ride completed successfully'
+    });
+
+    if (ride.driver) {
+      this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
+        rideId: ride._id,
+        message: 'Ride completed successfully',
+        earnings: ride.TotalFare * 0.8
+      });
+    }
+
+    return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, {
+      ride,
+      earnings: driverEarnings
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
+  }
+}
 }

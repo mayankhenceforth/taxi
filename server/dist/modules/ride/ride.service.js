@@ -26,6 +26,7 @@ const role_enum_1 = require("../../comman/enums/role.enum");
 const payment_service_1 = require("../../comman/payment/payment.service");
 const invoice_service_1 = require("../../comman/invoice/invoice.service");
 const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
+const driver_service_1 = require("../driver/driver.service");
 let RideService = class RideService {
     rideModel;
     TemporyRideModel;
@@ -34,9 +35,10 @@ let RideService = class RideService {
     paymentService;
     invoiceService;
     cloudinaryService;
+    driverService;
     rideTimers = new Map();
     twilioClient;
-    constructor(rideModel, TemporyRideModel, userModel, rideGateway, paymentService, invoiceService, cloudinaryService) {
+    constructor(rideModel, TemporyRideModel, userModel, rideGateway, paymentService, invoiceService, cloudinaryService, driverService) {
         this.rideModel = rideModel;
         this.TemporyRideModel = TemporyRideModel;
         this.userModel = userModel;
@@ -44,6 +46,7 @@ let RideService = class RideService {
         this.paymentService = paymentService;
         this.invoiceService = invoiceService;
         this.cloudinaryService = cloudinaryService;
+        this.driverService = driverService;
         const accountSid = process.env.TWILIO_SID;
         const authToken = process.env.TWILIO_AUTH_TOKEN;
         this.twilioClient = twilio(accountSid, authToken);
@@ -284,22 +287,7 @@ let RideService = class RideService {
             throw new common_1.BadRequestException('Ride is not in a state to pay for');
         if (ride.paymentStatus === 'paid')
             throw new common_1.BadRequestException('Ride already paid');
-        let farePerKm;
-        let gstPercent;
-        switch (ride.vehicleType) {
-            case 'bike':
-                farePerKm = parseFloat(process.env.RIDE_FARE ?? '10');
-                gstPercent = parseFloat(process.env.RIDE_BIKE_GST ?? '10');
-                break;
-            case 'car':
-                farePerKm = parseFloat(process.env.RIDE_CAR_FARE ?? '20');
-                gstPercent = parseFloat(process.env.RIDE_CAR_GST ?? '12');
-                break;
-            default:
-                throw new common_1.BadRequestException('Invalid vehicle type');
-        }
-        const baseFare = ride.distance * farePerKm;
-        const totalAmount = Math.round(baseFare * (1 + gstPercent / 100));
+        const totalAmount = ride.TotalFare;
         const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
         const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
         const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount * 100, rideId);
@@ -338,6 +326,50 @@ let RideService = class RideService {
         });
         return pdfBuffer;
     }
+    async rideComplete(rideId, request) {
+        if (!mongoose_1.Types.ObjectId.isValid(rideId))
+            throw new common_1.BadRequestException('Invalid rideId');
+        const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+        if (!ride)
+            throw new common_1.NotFoundException('Ride not found');
+        const user = request.user;
+        if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
+            throw new common_1.UnauthorizedException('Not authorized');
+        if (ride.paymentStatus !== 'paid')
+            throw new common_1.BadRequestException('Ride not complete, payment not completed');
+        if (ride.status === "cancelled")
+            throw new common_1.BadRequestException("Ride cannot be completed as it was cancelled");
+        const session = await this.rideModel.db.startSession();
+        session.startTransaction();
+        try {
+            ride.status = 'completed';
+            ride.completedAt = new Date();
+            await ride.save({ session });
+            const driverEarnings = await this.driverService.updateDriverEarnings(ride._id, ride.driver._id, ride.TotalFare * 0.8);
+            await session.commitTransaction();
+            session.endSession();
+            this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+                rideId: ride._id,
+                message: 'Ride completed successfully'
+            });
+            if (ride.driver) {
+                this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
+                    rideId: ride._id,
+                    message: 'Ride completed successfully',
+                    earnings: ride.TotalFare * 0.8
+                });
+            }
+            return new api_response_1.default(true, 'Ride completed successfully!', common_1.HttpStatus.OK, {
+                ride,
+                earnings: driverEarnings
+            });
+        }
+        catch (error) {
+            await session.abortTransaction();
+            session.endSession();
+            throw new common_1.InternalServerErrorException('Failed to complete ride: ' + error.message);
+        }
+    }
 };
 exports.RideService = RideService;
 exports.RideService = RideService = __decorate([
@@ -351,6 +383,7 @@ exports.RideService = RideService = __decorate([
         ride_gateway_1.RideGateway,
         payment_service_1.PaymentService,
         invoice_service_1.InvoiceService,
-        cloudinary_service_1.CloudinaryService])
+        cloudinary_service_1.CloudinaryService,
+        driver_service_1.DriverService])
 ], RideService);
 //# sourceMappingURL=ride.service.js.map

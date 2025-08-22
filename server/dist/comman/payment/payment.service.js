@@ -42,9 +42,7 @@ let PaymentService = class PaymentService {
                     price_data: {
                         currency: 'inr',
                         unit_amount: amountInCents,
-                        product_data: {
-                            name: 'Ride Payment',
-                        },
+                        product_data: { name: 'Ride Payment' },
                     },
                     quantity: 1,
                 },
@@ -54,6 +52,10 @@ let PaymentService = class PaymentService {
             cancel_url: cancelUrl,
             metadata: { rideId },
         });
+        await this.rideModel.findByIdAndUpdate(rideId, {
+            checkoutSessionId: session.id,
+        });
+        return session.url;
         return session.url;
     }
     async handleWebhook(rawBody, sig) {
@@ -62,19 +64,25 @@ let PaymentService = class PaymentService {
             switch (event.type) {
                 case 'checkout.session.completed': {
                     const session = event.data.object;
-                    const rideId = session.metadata?.rideId;
-                    if (rideId) {
+                    const fullSession = await this.stripe.checkout.sessions.retrieve(session.id, {
+                        expand: ['payment_intent'],
+                    });
+                    const rideId = fullSession.metadata?.rideId;
+                    const paymentIntent = fullSession.payment_intent;
+                    if (rideId && paymentIntent) {
+                        await this.rideModel.findByIdAndUpdate(rideId, {
+                            paymentStatus: 'paid',
+                            paymentIntentId: paymentIntent.id,
+                        });
                         const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
                         const uploadResult = await this.cloudinaryService.uploadFile({
                             buffer: pdfBuffer,
                             originalname: `invoice_${rideId}.pdf`,
-                            mimetype: 'application/pdf'
+                            mimetype: 'application/pdf',
                         });
                         await this.rideModel.findByIdAndUpdate(rideId, {
-                            paymentStatus: 'paid',
-                            invoiceUrl: uploadResult.secure_url
+                            invoiceUrl: uploadResult.secure_url,
                         });
-                        console.log(`✅ Invoice generated and uploaded for Ride ${rideId}`);
                     }
                     break;
                 }
@@ -86,12 +94,72 @@ let PaymentService = class PaymentService {
             throw new common_1.BadRequestException(`Webhook error: ${error.message}`);
         }
     }
-    async handleRefund(paymentIntentId) {
-        const refund = await this.stripe.refunds.create({ payment_intent: paymentIntentId });
+    async handleRefund(paymentIntentId, rideId) {
+        const ride = await this.rideModel.findById(rideId);
+        if (!ride) {
+            throw new common_1.HttpException('Ride not found', common_1.HttpStatus.NOT_FOUND);
+        }
+        if (!paymentIntentId) {
+            throw new common_1.BadRequestException('Payment intent ID is required for refund');
+        }
+        if (ride.status === 'started' || ride.status === 'completed') {
+            console.log("Ride has started or completed, refund not allowed");
+            throw new common_1.BadRequestException('Refund not allowed once ride has started or completed');
+        }
+        let refundAmount = 0;
+        let refundPercentage = 0;
+        let refundReason = '';
+        const now = new Date();
+        const createdAt = new Date(ride.createdAt);
+        const diffMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
+        if (ride.cancelledBy === 'Driver') {
+            refundAmount = ride.TotalFare;
+            refundPercentage = 100;
+            refundReason = 'Cancelled by Driver';
+        }
+        else if (ride.cancelledBy === 'User') {
+            if (diffMinutes <= 10) {
+                refundPercentage = 85;
+                refundReason = 'Cancelled by User within 10 min';
+            }
+            else if (diffMinutes <= 15) {
+                refundPercentage = 80;
+                refundReason = 'Cancelled by User within 15 min';
+            }
+            else if (diffMinutes <= 20) {
+                refundPercentage = 75;
+                refundReason = 'Cancelled by User within 20 min';
+            }
+            else {
+                refundPercentage = 0;
+                refundReason = 'Cancelled by User after 20 min (No Refund)';
+            }
+            refundAmount = (ride.TotalFare * refundPercentage) / 100;
+        }
+        if (refundAmount <= 0) {
+            throw new common_1.BadRequestException('No refund applicable for this ride');
+        }
+        console.log("Full refund applicable as ride was cancelled by Driver");
+        console.log("Refund Amount:", refundAmount);
+        console.log("Refund Percentage:", refundPercentage);
+        console.log("Refund Reason:", refundReason);
+        const refund = await this.stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            amount: Math.round(refundAmount * 100),
+        });
+        ride.paymentStatus = refundPercentage === 100 ? 'refunded' : 'partially_refunded';
+        ride.refundStatus = 'processed';
+        ride.refundAmount = refundAmount;
+        ride.refundPercentage = refundPercentage;
+        ride.refundReason = refundReason;
+        ride.refundedAt = new Date();
+        await ride.save();
         return {
             message: 'Refund initiated successfully!',
             refundId: refund.id,
             status: refund.status,
+            refundedAmount: refundAmount,
+            refundPercentage,
         };
     }
     async createCustomer(email, paymentMethodId) {

@@ -62,11 +62,35 @@ let AdminController = class AdminController {
     getRideInvoice(rideId) {
         return this.adminService.getRideInvoice(rideId);
     }
-    async getTotalEarning(filter) {
-        return this.adminService.getTotalEarning(filter);
+    async getTotalEarning(filter, res) {
+        const pdfBuffer = await this.adminService.getTotalEarning(filter);
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            "Content-Length": pdfBuffer.length,
+        });
+        return res.end(pdfBuffer);
     }
-    async generateInvoice(filter) {
-        return this.adminService.generateEarningInvoice(filter);
+    async getNewUsers(filter, res) {
+        const pdfBuffer = await this.adminService.getNewUsers(filter);
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            "Content-Length": pdfBuffer.length,
+        });
+        return res.end(pdfBuffer);
+    }
+    async getNewRides(filter, res) {
+        const pdfBuffer = await this.adminService.getNewRides(filter);
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            "Content-Length": pdfBuffer.length,
+        });
+        return res.end(pdfBuffer);
+    }
+    processRefund(rideId) {
+        return this.adminService.processRefund(rideId);
     }
 };
 exports.AdminController = AdminController;
@@ -158,7 +182,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getAllRideWithStatus", null);
 __decorate([
-    (0, common_1.Get)("ride_invoice/:rideId"),
+    (0, common_1.Get)("ride_report/:rideId"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
     (0, swagger_1.ApiParam)({ name: 'rideId', type: String, description: 'ID of the ride to fetch invoice for' }),
     __param(0, (0, common_1.Param)('rideId')),
@@ -167,25 +191,42 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getRideInvoice", null);
 __decorate([
-    (0, common_1.Get)("get_total_earning"),
+    (0, common_1.Get)("total_earning_report/:filter"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
-    (0, swagger_1.ApiOperation)({ summary: 'Get total earnings with filter' }),
-    (0, swagger_1.ApiQuery)({ name: 'filter', enum: ['last_hour', '1_day', '10_days', '1_month'], required: true }),
-    __param(0, (0, common_1.Query)('filter')),
+    __param(0, (0, common_1.Param)("filter")),
+    __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getTotalEarning", null);
 __decorate([
-    (0, common_1.Get)('generate_invoice'),
+    (0, common_1.Get)("new_users_report/:filter"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
-    (0, swagger_1.ApiOperation)({ summary: 'Generate invoice PDF for filtered earnings' }),
-    (0, swagger_1.ApiQuery)({ name: 'filter', enum: ['last_hour', '1_day', '10_days', '1_month'], required: true }),
-    __param(0, (0, common_1.Query)('filter')),
+    __param(0, (0, common_1.Param)("filter")),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getNewUsers", null);
+__decorate([
+    (0, common_1.Get)("new_rides_report/:filter"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    __param(0, (0, common_1.Param)("filter")),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getNewRides", null);
+__decorate([
+    (0, common_1.Post)("payment_refund/:rideId"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({ summary: 'Process a refund for a specific ride' }),
+    (0, swagger_1.ApiParam)({ name: 'rideId', type: String, description: 'ID of the ride to refund' }),
+    __param(0, (0, common_1.Param)('rideId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "generateInvoice", null);
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "processRefund", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),

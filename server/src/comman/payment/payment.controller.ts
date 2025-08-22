@@ -50,11 +50,13 @@ export class PaymentController {
   }
 
 
-  @Delete("refund/:intentId")
-  handleRefund(@Param('intentId') intentId: string) {
-    this.paymentService.handleRefund(intentId);
-  }
-
+ @Delete("refund/:intentId/:rideId")
+async handleRefund(
+  @Param("intentId") intentId: string,
+  @Param("rideId") rideId: string,
+) {
+  return this.paymentService.handleRefund(intentId, rideId);
+}
   // @Get("subscriptions-data")
   // handleGetSubscriptionsData() {
   //   return this.paymentService.getAllSubscriptions();

@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PendingUserSchema = exports.PendingUser = exports.UserSchema = exports.User = exports.vehicleDetailsSchema = exports.VehicleDetails = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const payout_schema_1 = require("./payout.schema");
+const driver_earnings_schema_1 = require("./driver-earnings.schema");
 let VehicleDetails = class VehicleDetails {
     numberPlate;
     type;
@@ -61,13 +63,12 @@ let User = class User {
     location;
     vehicleDetails;
     isVerified;
+    payoutAccounts;
+    earnings;
 };
 exports.User = User;
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        trim: true
-    }),
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], User.prototype, "name", void 0);
 __decorate([
@@ -75,16 +76,11 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "profilePic", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true
-    }),
+    (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", String)
 ], User.prototype, "password", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        unique: true,
-    }),
+    (0, mongoose_1.Prop)({ required: true, unique: true }),
     __metadata("design:type", Number)
 ], User.prototype, "contactNumber", void 0);
 __decorate([
@@ -92,31 +88,17 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "refreshToken", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        default: false,
-    }),
+    (0, mongoose_1.Prop)({ required: true, default: false }),
     __metadata("design:type", Boolean)
 ], User.prototype, "isContactNumberVerified", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        default: 'user',
-    }),
+    (0, mongoose_1.Prop)({ required: true, default: 'user' }),
     __metadata("design:type", String)
 ], User.prototype, "role", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point',
-        },
-        coordinates: {
-            type: [Number],
-            required: true,
-            default: [0, 0],
-        },
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], required: true, default: [0, 0] },
     }),
     __metadata("design:type", Object)
 ], User.prototype, "location", void 0);
@@ -128,6 +110,14 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, default: false }),
     __metadata("design:type", Boolean)
 ], User.prototype, "isVerified", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: payout_schema_1.DriverPayout.name }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], User.prototype, "payoutAccounts", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: driver_earnings_schema_1.DriverEarnings.name }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], User.prototype, "earnings", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], User);
@@ -148,10 +138,7 @@ let PendingUser = class PendingUser {
 };
 exports.PendingUser = PendingUser;
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        trim: true
-    }),
+    (0, mongoose_1.Prop)({ required: true, trim: true }),
     __metadata("design:type", String)
 ], PendingUser.prototype, "name", void 0);
 __decorate([
@@ -167,17 +154,11 @@ __decorate([
     __metadata("design:type", String)
 ], PendingUser.prototype, "profilePic", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        default: 'user',
-    }),
+    (0, mongoose_1.Prop)({ required: true, default: 'user' }),
     __metadata("design:type", String)
 ], PendingUser.prototype, "role", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        default: false,
-    }),
+    (0, mongoose_1.Prop)({ required: true, default: false }),
     __metadata("design:type", Boolean)
 ], PendingUser.prototype, "isVerified", void 0);
 __decorate([
@@ -193,18 +174,13 @@ __decorate([
     __metadata("design:type", Date)
 ], PendingUser.prototype, "otpExpiresAt", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: mongoose_2.Types.ObjectId,
-        ref: VehicleDetails.name
-    }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: VehicleDetails.name }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], PendingUser.prototype, "vehicleDetails", void 0);
 __decorate([
     (0, mongoose_1.Prop)({
         default: Date.now,
-        index: {
-            expires: 180,
-        },
+        index: { expires: 180 },
     }),
     __metadata("design:type", Date)
 ], PendingUser.prototype, "createdAt", void 0);

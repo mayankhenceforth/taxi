@@ -1,16 +1,35 @@
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
 import { User, UserDocument, VehicleDetailsDocument } from 'src/comman/schema/user.schema';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dt.o';
+import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
+import { DriverEarnings, DriverEarningsDocument } from 'src/comman/schema/driver-earnings.schema';
 export declare class DriverService {
     private readonly userModel;
     private readonly vehicleDetailsModel;
-    constructor(userModel: Model<UserDocument>, vehicleDetailsModel: Model<VehicleDetailsDocument>);
+    private readonly DriverPayOutModel;
+    private readonly earningModel;
+    constructor(userModel: Model<UserDocument>, vehicleDetailsModel: Model<VehicleDetailsDocument>, DriverPayOutModel: Model<DriverPayoutDocument>, earningModel: Model<DriverEarningsDocument>);
     setupDriverAccount(req: any, setupDriverAccountDto: SetupDriverAccountDto): Promise<{
         message: string;
         data: (import("mongoose").Document<unknown, {}, UserDocument, {}, {}> & User & Document & {
-            _id: import("mongoose").Types.ObjectId;
+            _id: Types.ObjectId;
         } & {
             __v: number;
         }) | null;
+    }>;
+    createPaymentAccount(req: any, createDriverPayoutDto: CreateDriverPayoutDto): Promise<{
+        success: boolean;
+        message: string;
+        data: import("mongoose").Document<unknown, {}, DriverPayoutDocument, {}, {}> & DriverPayout & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
+    updateDriverEarnings(rideId: Types.ObjectId, driverId: Types.ObjectId, amount: number): Promise<import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+        _id: unknown;
+    }> & {
+        __v: number;
     }>;
 }

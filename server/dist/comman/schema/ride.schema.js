@@ -23,96 +23,82 @@ let Ride = class Ride {
     status;
     paymentStatus;
     refundStatus;
+    refundAmount;
+    refundPercentage;
+    refundReason;
     pickupLocation;
     dropoffLocation;
     otp;
     cancelReason;
     cancelledBy;
     invoiceUrl;
-    expiresAt;
+    paymentIntentId;
+    checkoutSessionId;
+    completedAt;
+    startedAt;
+    acceptedAt;
+    cancelledAt;
+    terminatedAt;
+    paidAt;
+    refundedAt;
+    createdAt;
+    updatedAt;
 };
 exports.Ride = Ride;
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        type: mongoose_2.Types.ObjectId,
-        ref: user_schema_1.User.name,
-    }),
+    (0, mongoose_1.Prop)({ required: true, type: mongoose_2.Types.ObjectId, ref: user_schema_1.User.name }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Ride.prototype, "bookedBy", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: mongoose_2.Types.ObjectId,
-        ref: user_schema_1.User.name,
-    }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: user_schema_1.User.name }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Ride.prototype, "driver", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: String,
-        enum: ['bike', 'car'],
-        required: true
-    }),
+    (0, mongoose_1.Prop)({ type: String, enum: ['bike', 'car'], required: true }),
     __metadata("design:type", String)
 ], Ride.prototype, "vehicleType", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: Number,
-        required: true,
-        default: 5
-    }),
+    (0, mongoose_1.Prop)({ type: Number, required: true, default: 5 }),
     __metadata("design:type", Number)
 ], Ride.prototype, "sentToRadius", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: Number,
-        required: true
-    }),
+    (0, mongoose_1.Prop)({ type: Number, required: true }),
     __metadata("design:type", Number)
 ], Ride.prototype, "distance", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: Number,
-        required: true
-    }),
+    (0, mongoose_1.Prop)({ type: Number, required: true }),
     __metadata("design:type", Number)
 ], Ride.prototype, "TotalFare", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        type: String,
-        enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'],
-        default: 'processing',
-    }),
+    (0, mongoose_1.Prop)({ required: true, type: String, enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' }),
     __metadata("design:type", String)
 ], Ride.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: true,
-        enum: ['paid', 'unpaid'],
-        default: 'unpaid',
-    }),
+    (0, mongoose_1.Prop)({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' }),
     __metadata("design:type", String)
 ], Ride.prototype, "paymentStatus", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        enum: ['none', 'requested', 'processed'],
-        default: 'none',
-    }),
+    (0, mongoose_1.Prop)({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' }),
     __metadata("design:type", String)
 ], Ride.prototype, "refundStatus", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: { type: String, enum: ['Point'], default: 'Point' },
-        coordinates: { type: [Number], default: [0, 0] },
-    }),
+    (0, mongoose_1.Prop)({ type: Number, default: 0 }),
+    __metadata("design:type", Number)
+], Ride.prototype, "refundAmount", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Number, default: 0 }),
+    __metadata("design:type", Number)
+], Ride.prototype, "refundPercentage", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, required: false }),
+    __metadata("design:type", String)
+], Ride.prototype, "refundReason", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } }),
     __metadata("design:type", Object)
 ], Ride.prototype, "pickupLocation", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: { type: String, enum: ['Point'], default: 'Point' },
-        coordinates: { type: [Number], default: [0, 0] },
-    }),
+    (0, mongoose_1.Prop)({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } }),
     __metadata("design:type", Object)
 ], Ride.prototype, "dropoffLocation", void 0);
 __decorate([
@@ -124,10 +110,7 @@ __decorate([
     __metadata("design:type", String)
 ], Ride.prototype, "cancelReason", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        required: false,
-        enum: ['User', 'Driver']
-    }),
+    (0, mongoose_1.Prop)({ required: false, enum: ['User', 'Driver'] }),
     __metadata("design:type", String)
 ], Ride.prototype, "cancelledBy", void 0);
 __decorate([
@@ -135,13 +118,49 @@ __decorate([
     __metadata("design:type", String)
 ], Ride.prototype, "invoiceUrl", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: Date,
-        default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
-        index: { expires: 0 }
-    }),
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", String)
+], Ride.prototype, "paymentIntentId", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", String)
+], Ride.prototype, "checkoutSessionId", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
     __metadata("design:type", Date)
-], Ride.prototype, "expiresAt", void 0);
+], Ride.prototype, "completedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "startedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "acceptedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "cancelledAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "terminatedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "paidAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "refundedAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "createdAt", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: Date }),
+    __metadata("design:type", Date)
+], Ride.prototype, "updatedAt", void 0);
 exports.Ride = Ride = __decorate([
     (0, mongoose_1.Schema)({
         timestamps: true

@@ -403,6 +403,8 @@ export declare class UserController {
             } & Location;
             vehicleDetails?: mongoose.Types.ObjectId;
             isVerified: boolean;
+            payoutAccounts?: mongoose.Types.ObjectId;
+            earnings?: mongoose.Types.ObjectId;
             URL: string;
             alinkColor: string;
             all: HTMLAllCollection;

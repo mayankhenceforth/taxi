@@ -49,6 +49,12 @@ let RideGateway = class RideGateway {
             this.server.to(userSocketId).emit('ride-payment-confirmed', rideDetails);
         }
     }
+    sendRideCompleted(userId, rideDetails) {
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('ride-complete', rideDetails);
+        }
+    }
 };
 exports.RideGateway = RideGateway;
 __decorate([

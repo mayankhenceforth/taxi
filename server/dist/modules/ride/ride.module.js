@@ -16,39 +16,31 @@ const ride_controller_1 = require("./ride.controller");
 const ride_gateway_1 = require("./ride.gateway");
 const auth_guards_1 = require("../../comman/guards/auth.guards");
 const role_guards_1 = require("../../comman/guards/role.guards");
-const jwt_1 = require("@nestjs/jwt");
-const config_1 = require("@nestjs/config");
 const ride_cron_service_1 = require("./ride.cron.service");
-const payment_module_1 = require("../../comman/payment/payment.module");
 const payment_service_1 = require("../../comman/payment/payment.service");
-const invoice_module_1 = require("../../comman/invoice/invoice.module");
-const cloudinary_module_1 = require("../../comman/cloudinary/cloudinary.module");
 const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
+const driver_module_1 = require("../driver/driver.module");
+const driver_service_1 = require("../driver/driver.service");
+const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
+const payout_schema_1 = require("../../comman/schema/payout.schema");
 let RideModule = class RideModule {
 };
 exports.RideModule = RideModule;
 exports.RideModule = RideModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule,
-            jwt_1.JwtModule.registerAsync({
-                inject: [config_1.ConfigService],
-                useFactory: (config) => ({
-                    secret: config.get('ACCESS_TOKEN_SECRET'),
-                    signOptions: { expiresIn: '1d' },
-                }),
-            }),
             mongoose_1.MongooseModule.forFeature([
                 { name: ride_schema_1.Ride.name, schema: ride_schema_1.RideSchema },
+                { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema },
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
-                { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema }
+                { name: user_schema_1.VehicleDetails.name, schema: user_schema_1.vehicleDetailsSchema },
+                { name: payout_schema_1.DriverPayout.name, schema: payout_schema_1.DriverPayoutSchema },
+                { name: driver_earnings_schema_1.DriverEarnings.name, schema: driver_earnings_schema_1.DriverEarningsSchema },
             ]),
-            payment_module_1.PaymentModule,
-            invoice_module_1.InvoiceModule,
-            cloudinary_module_1.CloudinaryModule
+            driver_module_1.DriverModule
         ],
         controllers: [ride_controller_1.RideController],
-        providers: [ride_service_1.RideService, ride_gateway_1.RideGateway, payment_service_1.PaymentService, auth_guards_1.AuthGuards, role_guards_1.RoleGuards, ride_cron_service_1.RideCronService, cloudinary_service_1.CloudinaryService],
+        providers: [ride_service_1.RideService, ride_gateway_1.RideGateway, payment_service_1.PaymentService, auth_guards_1.AuthGuards, role_guards_1.RoleGuards, ride_cron_service_1.RideCronService, cloudinary_service_1.CloudinaryService, driver_service_1.DriverService],
     })
 ], RideModule);
 //# sourceMappingURL=ride.module.js.map

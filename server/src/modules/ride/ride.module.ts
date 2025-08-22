@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Ride, RideSchema, TemporaryRide, TemporaryRideSchema } from 'src/comman/schema/ride.schema';
-import { User, UserSchema } from 'src/comman/schema/user.schema';
+import { User, UserSchema, VehicleDetails, vehicleDetailsSchema } from 'src/comman/schema/user.schema';
 import { RideService } from './ride.service';
 import { RideController } from './ride.controller';
 import { RideGateway } from './ride.gateway';
@@ -15,27 +15,24 @@ import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceModule } from 'src/comman/invoice/invoice.module';
 import { CloudinaryModule } from 'src/comman/cloudinary/cloudinary.module';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { DriverModule } from '../driver/driver.module';
+import { DriverService } from '../driver/driver.service';
+import { DriverEarnings, DriverEarningsSchema } from 'src/comman/schema/driver-earnings.schema';
+import { DriverPayout, DriverPayoutSchema } from 'src/comman/schema/payout.schema';
 
 @Module({
   imports: [
-    ConfigModule,
-    JwtModule.registerAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('ACCESS_TOKEN_SECRET'),
-        signOptions: { expiresIn: '1d' },
-      }),
-    }),
     MongooseModule.forFeature([
       { name: Ride.name, schema: RideSchema },
+      { name: TemporaryRide.name, schema: TemporaryRideSchema },
       { name: User.name, schema: UserSchema },
-      { name: TemporaryRide.name, schema: TemporaryRideSchema }
+      { name: VehicleDetails.name, schema: vehicleDetailsSchema },
+      { name: DriverPayout.name, schema: DriverPayoutSchema },
+      { name: DriverEarnings.name, schema: DriverEarningsSchema },
     ]),
-    PaymentModule,
-    InvoiceModule,
-    CloudinaryModule
+    DriverModule
   ],
   controllers: [RideController],
-  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,CloudinaryService],
+  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,CloudinaryService,DriverService],
 })
 export class RideModule { }

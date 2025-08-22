@@ -8,4 +8,5 @@ export declare class RideGateway {
     sendRideAccepted(userId: string, rideDetails: any): void;
     sendRideTerminated(userId: string, rideDetails: any): void;
     sendRidePaymentConfirmed(userId: string, rideDetails: any): void;
+    sendRideCompleted(userId: string, rideDetails: any): void;
 }

@@ -3,6 +3,7 @@ import { GetUsersDto } from './dto/get-users.dto';
 import { CreateNewEntryDto } from './dto/create-admin.dto';
 import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
+import { Response } from 'express';
 export declare class AdminController {
     private readonly adminService;
     constructor(adminService: AdminService);
@@ -30,6 +31,11 @@ export declare class AdminController {
         rides: any[];
     }>;
     getRideInvoice(rideId: string): Promise<string | undefined>;
-    getTotalEarning(filter: string): Promise<any>;
-    generateInvoice(filter: string): Promise<string>;
+    getTotalEarning(filter: string, res: Response): Promise<Response<any, Record<string, any>>>;
+    getNewUsers(filter: string, res: Response): Promise<Response<any, Record<string, any>>>;
+    getNewRides(filter: string, res: Response): Promise<Response<any, Record<string, any>>>;
+    processRefund(rideId: string): Promise<import("../../comman/helpers/api-response").default<{
+        rideId: unknown;
+        refundStatus: "processed";
+    }>>;
 }

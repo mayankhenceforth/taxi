@@ -7,6 +7,8 @@ import { User, UserDocument } from 'src/comman/schema/user.schema';
 import { Model, PaginateModel, Types } from 'mongoose';
 import { RideDocument, TemporaryRideDocument } from 'src/comman/schema/ride.schema';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { InvoiceService } from 'src/comman/invoice/invoice.service';
+import { PaymentService } from 'src/comman/payment/payment.service';
 export type UserRole = 'super-admin' | 'admin' | 'user';
 export declare class AdminService {
     private userModel;
@@ -14,7 +16,9 @@ export declare class AdminService {
     private readonly TemporyRideModel;
     private configService;
     private readonly cloudinaryService;
-    constructor(userModel: PaginateModel<UserDocument>, rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, configService: ConfigService, cloudinaryService: CloudinaryService);
+    private readonly invoiceService;
+    private readonly paymentService;
+    constructor(userModel: PaginateModel<UserDocument>, rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, configService: ConfigService, cloudinaryService: CloudinaryService, invoiceService: InvoiceService, paymentService: PaymentService);
     private getDateFilter;
     seedSuperAdminData(): Promise<void>;
     getUsersDetails(): Promise<any[]>;
@@ -34,7 +38,11 @@ export declare class AdminService {
         rides: any[];
     }>;
     getRideInvoice(rideId: string): Promise<string | undefined>;
-    getTotalEarning(filter: string): Promise<any>;
-    generateEarningInvoice(filter: string): Promise<string>;
-    private generateQRCode;
+    getTotalEarning(filter: string): Promise<Buffer>;
+    getNewUsers(filter: string): Promise<Buffer>;
+    getNewRides(filter: string): Promise<Buffer>;
+    processRefund(rideId: string): Promise<ApiResponse<{
+        rideId: unknown;
+        refundStatus: "processed";
+    }>>;
 }

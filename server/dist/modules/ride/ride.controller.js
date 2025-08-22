@@ -50,8 +50,6 @@ let RideController = class RideController {
         return this.rideService.cencelRide(rideId, request, cancelRideDto.reason);
     }
     async handlePaymentRide(rideId, request) {
-        console.log("rideId:", rideId);
-        console.log("request:", request.user);
         return this.rideService.paymentRide(rideId, request);
     }
     async confirmRidePayment(rideId, res) {
@@ -59,6 +57,9 @@ let RideController = class RideController {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=invoice-${rideId}.pdf`);
         res.end(pdfBuffer);
+    }
+    async handlePaymentcomplete(rideId, request) {
+        return this.rideService.rideComplete(rideId, request);
     }
 };
 exports.RideController = RideController;
@@ -130,6 +131,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], RideController.prototype, "confirmRidePayment", null);
+__decorate([
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.User),
+    (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),
+    (0, common_1.Get)(':rideId/payment'),
+    __param(0, (0, common_1.Param)('rideId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], RideController.prototype, "handlePaymentcomplete", null);
 exports.RideController = RideController = __decorate([
     (0, common_1.Controller)('ride'),
     __metadata("design:paramtypes", [ride_service_1.RideService,

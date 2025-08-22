@@ -9,6 +9,7 @@ import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { DriverService } from '../driver/driver.service';
 export declare class RideService {
     private readonly rideModel;
     private readonly TemporyRideModel;
@@ -17,9 +18,10 @@ export declare class RideService {
     private readonly paymentService;
     private readonly invoiceService;
     private readonly cloudinaryService;
+    private readonly driverService;
     private rideTimers;
     private readonly twilioClient;
-    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
+    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService, cloudinaryService: CloudinaryService, driverService: DriverService);
     private getDistanceKm;
     private getNearbyDrivers;
     private sendRideRequestToDrivers;
@@ -30,4 +32,5 @@ export declare class RideService {
     cencelRide(rideId: string, request: any, reason: string): Promise<ApiResponse<any>>;
     paymentRide(rideId: string, request: any): Promise<ApiResponse<any>>;
     confirmPayment(rideId: string): Promise<Buffer>;
+    rideComplete(rideId: string, request: any): Promise<ApiResponse<any>>;
 }

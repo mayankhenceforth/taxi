@@ -8,8 +8,11 @@ export declare class Ride {
     distance: number;
     TotalFare: number;
     status: string;
-    paymentStatus: 'unpaid' | 'paid';
-    refundStatus?: 'none' | 'requested' | 'processed';
+    paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
+    refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
+    refundAmount?: number;
+    refundPercentage?: number;
+    refundReason?: string;
     pickupLocation: {
         type: string;
         coordinates: number[];
@@ -22,7 +25,17 @@ export declare class Ride {
     cancelReason?: string;
     cancelledBy?: 'User' | 'Driver';
     invoiceUrl?: string;
-    expiresAt: Date;
+    paymentIntentId?: string;
+    checkoutSessionId?: string;
+    completedAt?: Date;
+    startedAt?: Date;
+    acceptedAt?: Date;
+    cancelledAt?: Date;
+    terminatedAt?: Date;
+    paidAt?: Date;
+    refundedAt?: Date;
+    createdAt: Date;
+    updatedAt: Date;
 }
 export declare const RideSchema: import("mongoose").Schema<Ride, import("mongoose").Model<Ride, any, any, any, Document<unknown, any, Ride, any, {}> & Ride & {
     _id: Types.ObjectId;

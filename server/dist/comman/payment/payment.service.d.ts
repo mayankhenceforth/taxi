@@ -15,10 +15,12 @@ export declare class PaymentService {
     handleWebhook(rawBody: Buffer, sig: string): Promise<{
         received: boolean;
     }>;
-    handleRefund(paymentIntentId: string): Promise<{
+    handleRefund(paymentIntentId: string, rideId: string): Promise<{
         message: string;
         refundId: string;
         status: string | null;
+        refundedAmount: number;
+        refundPercentage: number;
     }>;
     createCustomer(email: string, paymentMethodId: string): Promise<{
         success: boolean;

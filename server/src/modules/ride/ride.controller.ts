@@ -71,8 +71,6 @@ export class RideController {
     @Param('rideId') rideId: string,
     @Req() request: any,
   ) {
-    console.log("rideId:", rideId);
-    console.log("request:", request.user);
     return this.rideService.paymentRide(rideId, request);
   }
 
@@ -92,6 +90,17 @@ export class RideController {
       `attachment; filename=invoice-${rideId}.pdf`,
     );
     res.end(pdfBuffer);
+  }
+
+  @ApiBearerAuth()
+  @Roles(Role.User)
+  @UseGuards(AuthGuards, RoleGuards)
+  @Get(':rideId/payment')
+  async handlePaymentcomplete(
+    @Param('rideId') rideId: string,
+    @Req() request: any,
+  ) {
+    return this.rideService.rideComplete(rideId, request);
   }
 
 

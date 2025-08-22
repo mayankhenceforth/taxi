@@ -8,111 +8,79 @@ export type RideDocument = Ride & Document;
   timestamps: true
 })
 export class Ride {
-
-  @Prop({
-    required: true,
-    type: Types.ObjectId,
-    ref: User.name,
-  })
+  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
   bookedBy: Types.ObjectId;
 
-  @Prop({
-    type: Types.ObjectId,
-    ref: User.name,
-  })
+  @Prop({ type: Types.ObjectId, ref: User.name })
   driver?: Types.ObjectId;
 
-  @Prop({
-    type: String,
-    enum: ['bike', 'car'],
-    required: true
-  })
+  @Prop({ type: String, enum: ['bike', 'car'], required: true })
   vehicleType: 'bike' | 'car';
 
-  @Prop({
-    type: Number,
-    required: true,
-    default: 5
-  })
+  @Prop({ type: Number, required: true, default: 5 })
   sentToRadius: number;
 
-  @Prop({
-    type: Number,
-    required: true
-  })
+  @Prop({ type: Number, required: true })
   distance: number;
 
-  @Prop({
-    type: Number,
-    required: true
-  })
+  @Prop({ type: Number, required: true })
   TotalFare: number;
 
-  @Prop({
-    required: true,
-    type: String,
-    enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'],
-    default: 'processing',
-  })
+  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
   status: string;
 
-  @Prop({
-    required: true,
-    enum: ['paid', 'unpaid'],
-    default: 'unpaid',
-  })
-  paymentStatus: 'unpaid' | 'paid';
+  @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
-  @Prop({
-    enum: ['none', 'requested', 'processed'],
-    default: 'none',
-  })
-  refundStatus?: 'none' | 'requested' | 'processed';
+  @Prop({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' })
+  refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
 
+  @Prop({ type: Number, default: 0 })
+  refundAmount?: number;
 
+  @Prop({ type: Number, default: 0 })
+  refundPercentage?: number;
 
-  @Prop({
-    type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], default: [0, 0] },
-  })
-  pickupLocation: {
-    type: string;
-    coordinates: number[];
-  };
+  @Prop({ type: String, required: false })
+  refundReason?: string;
 
-  @Prop({
-    type: { type: String, enum: ['Point'], default: 'Point' },
-    coordinates: { type: [Number], default: [0, 0] },
-  })
-  dropoffLocation: {
-    type: string;
-    coordinates: number[];
-  };
+  @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
+  pickupLocation: { type: string; coordinates: number[] };
+
+  @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
+  dropoffLocation: { type: string; coordinates: number[] };
 
   @Prop({ required: false })
-  otp: number
+  otp: number;
 
   @Prop({ required: false })
   cancelReason?: string;
 
-  @Prop({
-    required: false,
-    enum: ['User', 'Driver']
-  })
+  @Prop({ required: false, enum: ['User', 'Driver'] })
   cancelledBy?: 'User' | 'Driver';
 
   @Prop({ required: false })
-invoiceUrl?: string;
+  invoiceUrl?: string;
 
-  @Prop({
-    type: Date,
-    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000),
-    index: { expires: 0 }
-  })
-  expiresAt: Date;
+  @Prop({ required: false })
+  paymentIntentId?: string;
+
+  @Prop({ required: false })
+  checkoutSessionId?: string;
+
+  @Prop({ type: Date }) completedAt?: Date;
+  @Prop({ type: Date }) startedAt?: Date;
+  @Prop({ type: Date }) acceptedAt?: Date;
+  @Prop({ type: Date }) cancelledAt?: Date;
+  @Prop({ type: Date }) terminatedAt?: Date;
+  @Prop({ type: Date }) paidAt?: Date;
+  @Prop({ type: Date }) refundedAt?: Date;
+  @Prop({ type: Date }) createdAt: Date;
+  @Prop({ type: Date }) updatedAt: Date;
 }
 
 export const RideSchema = SchemaFactory.createForClass(Ride);
+
 
 export type TemporaryRideDocument = TemporaryRide & Document;
 

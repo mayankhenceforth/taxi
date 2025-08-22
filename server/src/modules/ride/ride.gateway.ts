@@ -47,4 +47,12 @@ export class RideGateway {
             this.server.to(userSocketId).emit('ride-payment-confirmed', rideDetails);  
         }
     }
+
+    sendRideCompleted(userId: string, rideDetails: any) {
+
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('ride-complete', rideDetails);  
+        }
+    }
 }

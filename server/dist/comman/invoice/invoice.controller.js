@@ -29,6 +29,33 @@ let InvoiceController = class InvoiceController {
         });
         res.end(pdfBuffer);
     }
+    async getTotalIncome(filter, res) {
+        const pdfBuffer = await this.invoiceService.TotalIncome(filter);
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            'Content-Length': pdfBuffer.length,
+        });
+        res.end(pdfBuffer);
+    }
+    async getNewUser(filter, res) {
+        const pdfBuffer = await this.invoiceService.NewUsersReport(filter);
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            'Content-Length': pdfBuffer.length,
+        });
+        res.end(pdfBuffer);
+    }
+    async getNewRides(filter, res) {
+        const pdfBuffer = await this.invoiceService.NewRidesReport(filter);
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="total-income-${filter || 'all'}.pdf"`,
+            'Content-Length': pdfBuffer.length,
+        });
+        res.end(pdfBuffer);
+    }
 };
 exports.InvoiceController = InvoiceController;
 __decorate([
@@ -39,6 +66,30 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], InvoiceController.prototype, "getInvoice", null);
+__decorate([
+    (0, common_1.Get)('totalIncome'),
+    __param(0, (0, common_1.Query)('filter')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "getTotalIncome", null);
+__decorate([
+    (0, common_1.Get)('newUser'),
+    __param(0, (0, common_1.Query)('filter')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "getNewUser", null);
+__decorate([
+    (0, common_1.Get)('newRides'),
+    __param(0, (0, common_1.Query)('filter')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InvoiceController.prototype, "getNewRides", null);
 exports.InvoiceController = InvoiceController = __decorate([
     (0, common_1.Controller)('invoice'),
     __metadata("design:paramtypes", [invoice_service_1.InvoiceService])

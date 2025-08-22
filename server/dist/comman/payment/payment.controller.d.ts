@@ -15,7 +15,13 @@ export declare class PaymentController {
     handleWebhook(req: Request): Promise<{
         received: boolean;
     }>;
-    handleRefund(intentId: string): void;
+    handleRefund(intentId: string, rideId: string): Promise<{
+        message: string;
+        refundId: string;
+        status: string | null;
+        refundedAmount: number;
+        refundPercentage: number;
+    }>;
     handleCreateSubscription(createSubscriptionDto: CreateSubscriptionDto): Promise<{
         success: boolean;
         message: string;

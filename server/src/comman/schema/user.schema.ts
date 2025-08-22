@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
+import { DriverPayout } from "./payout.schema";
+import { DriverEarnings } from "./driver-earnings.schema";
 
 export type UserDocument = User & Document;
 export type VehicleDetailsDocument = VehicleDetails & Document;
@@ -36,63 +38,47 @@ export const vehicleDetailsSchema = SchemaFactory.createForClass(VehicleDetails)
 
 @Schema({ timestamps: true })
 export class User {
-    @Prop({
-        required: true,
-        trim: true
-    })
+    @Prop({ required: true, trim: true })
     name: string;
 
     @Prop()
     profilePic: string;
 
-    @Prop({
-        required: true
-    })
+    @Prop({ required: true })
     password: string;
 
-    @Prop({
-        required: true,
-        unique: true,
-    })
+    @Prop({ required: true, unique: true })
     contactNumber: number;
 
     @Prop()
     refreshToken: string;
 
-    @Prop({
-        required: true,
-        default: false,
-    })
+    @Prop({ required: true, default: false })
     isContactNumberVerified: boolean;
 
-    @Prop({
-        required: true,
-        default: 'user',
-    })
+    @Prop({ required: true, default: 'user' })
     role: 'admin' | 'user' | 'super-admin' | 'driver';
 
     @Prop({
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point',
-        },
-        coordinates: {
-            type: [Number],
-            required: true,
-            default: [0, 0],
-        },
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], required: true, default: [0, 0] },
     })
     location: {
         type: string;
         coordinates: number[];
     };
 
-    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name }) // Fixed reference
+    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name })
     vehicleDetails?: Types.ObjectId;
 
     @Prop({ required: true, default: false })
     isVerified: boolean;
+
+    @Prop({ type: Types.ObjectId, ref: DriverPayout.name })
+    payoutAccounts?: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: DriverEarnings.name })
+    earnings?: Types.ObjectId;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -102,10 +88,7 @@ export type PendingUserDocument = PendingUser & Document;
 
 @Schema({ timestamps: true })
 export class PendingUser {
-    @Prop({
-        required: true,
-        trim: true
-    })
+    @Prop({ required: true, trim: true })
     name: string;
 
     @Prop({ required: true })
@@ -117,16 +100,10 @@ export class PendingUser {
     @Prop({ default: '' })
     profilePic: string;
 
-    @Prop({
-        required: true,
-        default: 'user',
-    })
+    @Prop({ required: true, default: 'user' })
     role: 'admin' | 'user' | 'super-admin' | 'driver';
 
-    @Prop({
-        required: true,
-        default: false,
-    })
+    @Prop({ required: true, default: false })
     isVerified: boolean;
 
     @Prop()
@@ -138,17 +115,12 @@ export class PendingUser {
     @Prop()
     otpExpiresAt?: Date;
 
-    @Prop({
-        type: Types.ObjectId,
-        ref: VehicleDetails.name // Fixed reference
-    })
+    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name })
     vehicleDetails?: Types.ObjectId;
 
     @Prop({
         default: Date.now,
-        index: {
-            expires: 180,
-        },
+        index: { expires: 180 },
     })
     createdAt: Date;
 }

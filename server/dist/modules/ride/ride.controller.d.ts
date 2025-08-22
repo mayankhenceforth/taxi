@@ -16,4 +16,5 @@ export declare class RideController {
     handleCancelRide(rideId: string, request: any, cancelRideDto: cencelRideDto): Promise<import("../../comman/helpers/api-response").default<any>>;
     handlePaymentRide(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
     confirmRidePayment(rideId: string, res: Response): Promise<void>;
+    handlePaymentcomplete(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
 }

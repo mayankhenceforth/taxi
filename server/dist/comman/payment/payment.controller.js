@@ -48,8 +48,8 @@ let PaymentController = class PaymentController {
             throw new common_1.BadRequestException(`Webhook Error: ${err.message}`);
         }
     }
-    handleRefund(intentId) {
-        this.paymentService.handleRefund(intentId);
+    async handleRefund(intentId, rideId) {
+        return this.paymentService.handleRefund(intentId, rideId);
     }
     handleCreateSubscription(createSubscriptionDto) {
         return this.paymentService.createSubscription(createSubscriptionDto.customerId, createSubscriptionDto.priceId);
@@ -94,11 +94,12 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "handleWebhook", null);
 __decorate([
-    (0, common_1.Delete)("refund/:intentId"),
-    __param(0, (0, common_1.Param)('intentId')),
+    (0, common_1.Delete)("refund/:intentId/:rideId"),
+    __param(0, (0, common_1.Param)("intentId")),
+    __param(1, (0, common_1.Param)("rideId")),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
 ], PaymentController.prototype, "handleRefund", null);
 __decorate([
     (0, common_1.Post)("create-subscription"),

@@ -15,6 +15,8 @@ const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const auth_guards_1 = require("../../comman/guards/auth.guards");
 const user_schema_1 = require("../../comman/schema/user.schema");
+const payout_schema_1 = require("../../comman/schema/payout.schema");
+const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
 let DriverModule = class DriverModule {
 };
 exports.DriverModule = DriverModule;
@@ -32,10 +34,13 @@ exports.DriverModule = DriverModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: user_schema_1.VehicleDetails.name, schema: user_schema_1.vehicleDetailsSchema },
-            ]),
+                { name: payout_schema_1.DriverPayout.name, schema: payout_schema_1.DriverPayoutSchema },
+                { name: driver_earnings_schema_1.DriverEarnings.name, schema: driver_earnings_schema_1.DriverEarningsSchema }
+            ])
         ],
         controllers: [driver_controller_1.DriverController],
-        providers: [driver_service_1.DriverService, auth_guards_1.AuthGuards],
+        providers: [driver_service_1.DriverService, auth_guards_1.AuthGuards, driver_service_1.DriverService],
+        exports: [driver_service_1.DriverService],
     })
 ], DriverModule);
 //# sourceMappingURL=driver.module.js.map
