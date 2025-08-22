@@ -1,6 +1,6 @@
 import { DriverService } from './driver.service';
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
-import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dt.o';
+import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
 export declare class DriverController {
     private readonly driverService;
     constructor(driverService: DriverService);
@@ -21,5 +21,30 @@ export declare class DriverController {
             __v: number;
         };
     }>;
-    getDriverEarnings(req: any): Promise<void>;
+    getDriverEarnings(req: any): Promise<{
+        success: boolean;
+        message: string;
+        data: import("mongoose").Document<unknown, {}, import("../../comman/schema/driver-earnings.schema").DriverEarningsDocument, {}, {}> & import("../../comman/schema/driver-earnings.schema").DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
+    getDriverEarningsHistory(req: any, page?: number, limit?: number): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            earnings: (import("mongoose").Document<unknown, {}, import("../../comman/schema/driver-earnings.schema").DriverEarningsDocument, {}, {}> & import("../../comman/schema/driver-earnings.schema").DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            pagination: {
+                currentPage: number;
+                totalPages: number;
+                totalItems: number;
+                itemsPerPage: number;
+            };
+        };
+    }>;
 }

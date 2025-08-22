@@ -142,6 +142,66 @@ let RideService = class RideService {
         timers.driverTimeouts.forEach((t) => clearTimeout(t));
         this.rideTimers.delete(rideId);
     }
+    calculateFare(distance, vehicleType, options = {}) {
+        const { isNight = false, hasTolls = false, hasParking = false, waitingTime = 0, surgeMultiplier = 1, promoCode = null } = options;
+        const baseRates = {
+            bike: parseFloat(process.env.RIDE_BIKE_FARE ?? '10'),
+            car: parseFloat(process.env.RIDE_CAR_FARE ?? '20')
+        };
+        const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '20');
+        const gstPercent = parseFloat(process.env.GST_PERCENT ?? '18');
+        const nightChargePercent = parseFloat(process.env.NIGHT_CHARGE_PERCENT ?? '25');
+        const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
+        const tollFee = parseFloat(process.env.TOLL_FEE ?? '50');
+        const parkingFee = parseFloat(process.env.PARKING_FEE ?? '30');
+        const baseFare = distance * baseRates[vehicleType.toLowerCase()];
+        const surgeCharge = baseFare * (surgeMultiplier - 1);
+        const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
+        const waitingCharge = waitingTime * waitingChargePerMin;
+        const subTotal = baseFare + surgeCharge + nightCharge + waitingCharge +
+            (hasTolls ? tollFee : 0) + (hasParking ? parkingFee : 0);
+        let promoDiscount = 0;
+        let referralDiscount = 0;
+        if (promoCode) {
+            promoDiscount = subTotal * 0.1;
+        }
+        const gstAmount = (subTotal - promoDiscount - referralDiscount) * (gstPercent / 100);
+        const platformFee = (subTotal - promoDiscount - referralDiscount) * (platformFeePercent / 100);
+        const totalFare = subTotal + gstAmount + platformFee - promoDiscount - referralDiscount;
+        const driverEarnings = (baseFare + surgeCharge + nightCharge + waitingCharge) * 0.8;
+        return {
+            baseFare,
+            gstAmount,
+            platformFee,
+            surgeCharge,
+            nightCharge,
+            tollFee: hasTolls ? tollFee : 0,
+            parkingFee: hasParking ? parkingFee : 0,
+            waitingCharge,
+            bonusAmount: 0,
+            referralDiscount,
+            promoDiscount,
+            subTotal,
+            totalFare: Math.round(totalFare),
+            driverEarnings: Math.round(driverEarnings),
+            platformEarnings: Math.round(platformFee),
+            fareBreakdown: {
+                baseFare,
+                gstAmount,
+                platformFee,
+                surgeCharge,
+                nightCharge,
+                tollFee: hasTolls ? tollFee : 0,
+                parkingFee: hasParking ? parkingFee : 0,
+                waitingCharge,
+                bonusAmount: 0,
+                referralDiscount,
+                promoDiscount,
+                subTotal,
+                totalFare: Math.round(totalFare)
+            }
+        };
+    }
     async createRide(request, createRideDto) {
         const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
         if (!request.user?._id)
@@ -173,6 +233,10 @@ let RideService = class RideService {
             bookedBy: request.user._id,
             vehicleType,
             distance,
+            baseFare,
+            estimatedGst: tax,
+            estimatedPlatformFee: 0,
+            surgeMultiplier: 1,
             fare: totalFare,
             status: 'processing',
             eligibleDrivers: [],
@@ -190,6 +254,7 @@ let RideService = class RideService {
                     pickupLocation: '$pickupLocation.coordinates',
                     dropoffLocation: '$dropoffLocation.coordinates',
                     distance: 1,
+                    baseFare: 1,
                     fare: 1,
                 },
             },
@@ -206,6 +271,9 @@ let RideService = class RideService {
             throw new common_1.BadRequestException('Ride already accepted, not found, or you are not eligible!');
         this.clearRideTimers(rideId);
         const otp = crypto.randomInt(1000, 9999).toString();
+        const fareBreakdown = this.calculateFare(tempRide.distance, tempRide.vehicleType, {
+            surgeMultiplier: tempRide.surgeMultiplier || 1,
+        });
         const newRideDoc = await this.rideModel.create({
             bookedBy: tempRide.bookedBy,
             driver: driver._id,
@@ -213,10 +281,26 @@ let RideService = class RideService {
             pickupLocation: tempRide.pickupLocation,
             dropoffLocation: tempRide.dropoffLocation,
             distance: tempRide.distance,
-            fare: tempRide.fare,
+            baseFare: tempRide.baseFare,
+            gstAmount: tempRide.estimatedGst || 0,
+            platformFee: fareBreakdown.platformFee,
+            surgeMultiplier: tempRide.surgeMultiplier || 1,
+            surgeCharge: fareBreakdown.surgeCharge,
+            nightCharge: fareBreakdown.nightCharge,
+            tollFee: fareBreakdown.tollFee,
+            parkingFee: fareBreakdown.parkingFee,
+            waitingCharge: fareBreakdown.waitingCharge,
+            bonusAmount: 0,
+            referralDiscount: 0,
+            promoDiscount: 0,
+            subTotal: fareBreakdown.subTotal,
+            TotalFare: tempRide.fare,
+            driverEarnings: fareBreakdown.driverEarnings,
+            platformEarnings: fareBreakdown.platformEarnings,
+            fareBreakdown: fareBreakdown.fareBreakdown,
             status: 'accepted',
             otp,
-            TotalFare: tempRide.fare,
+            acceptedAt: new Date(),
         });
         await newRideDoc.populate('bookedBy driver');
         await this.TemporyRideModel.findByIdAndDelete(tempRide._id);

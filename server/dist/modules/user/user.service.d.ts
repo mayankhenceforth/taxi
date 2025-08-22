@@ -411,7 +411,7 @@ export declare class UserService {
             } & Location;
             vehicleDetails?: mongoose.Types.ObjectId;
             isVerified: boolean;
-            payoutAccounts?: mongoose.Types.ObjectId;
+            payoutAccounts?: mongoose.Types.ObjectId[];
             earnings?: mongoose.Types.ObjectId;
             URL: string;
             alinkColor: string;

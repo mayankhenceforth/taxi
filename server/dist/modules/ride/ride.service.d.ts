@@ -26,6 +26,7 @@ export declare class RideService {
     private getNearbyDrivers;
     private sendRideRequestToDrivers;
     private clearRideTimers;
+    private calculateFare;
     createRide(request: any, createRideDto: CreateRideDto): Promise<ApiResponse<any>>;
     acceptRide(rideId: string, request: any): Promise<ApiResponse<any>>;
     verifyRideOtp(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto, role: Role): Promise<ApiResponse<any>>;

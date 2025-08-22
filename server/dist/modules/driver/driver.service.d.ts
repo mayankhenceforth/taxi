@@ -1,7 +1,7 @@
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
 import { User, UserDocument, VehicleDetailsDocument } from 'src/comman/schema/user.schema';
 import { Model, Types } from 'mongoose';
-import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dt.o';
+import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
 import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
 import { DriverEarnings, DriverEarningsDocument } from 'src/comman/schema/driver-earnings.schema';
 export declare class DriverService {
@@ -31,5 +31,31 @@ export declare class DriverService {
         _id: unknown;
     }> & {
         __v: number;
+    }>;
+    getDriverEarnings(req: any): Promise<{
+        success: boolean;
+        message: string;
+        data: import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+            _id: unknown;
+        }> & {
+            __v: number;
+        };
+    }>;
+    getDriverEarningsHistory(req: any, page?: number, limit?: number): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            earnings: (import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+                _id: unknown;
+            }> & {
+                __v: number;
+            })[];
+            pagination: {
+                currentPage: number;
+                totalPages: number;
+                totalItems: number;
+                itemsPerPage: number;
+            };
+        };
     }>;
 }

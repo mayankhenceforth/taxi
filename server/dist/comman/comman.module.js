@@ -36,7 +36,7 @@ exports.CommonModule = CommonModule = __decorate([
             otp_module_1.otpModule,
             sms_module_1.SmsModule,
             payment_module_1.PaymentModule,
-            invoice_module_1.InvoiceModule
+            invoice_module_1.InvoiceModule,
         ],
         exports: [mongoose_1.MongooseModule]
     })

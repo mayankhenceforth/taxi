@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, UnauthorizedException, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument, VehicleDetails, VehicleDetailsDocument } from 'src/comman/schema/user.schema';
 import { Model, Types } from 'mongoose';
-import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dt.o';
+import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
 import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
 import { DriverEarnings, DriverEarningsDocument, EarningsType, EarningsStatus } from 'src/comman/schema/driver-earnings.schema';
 
@@ -103,56 +103,74 @@ export class DriverService {
     }
   }
 
-  async createPaymentAccount(req: any, createDriverPayoutDto: CreateDriverPayoutDto) {
-    const driverId = req.user?._id;
-    const driver = await this.userModel.findOne({
-      _id: driverId,
-      role: 'driver',
-    }).populate('vehicleDetails earnings');
+  async createPaymentAccount(
+  req: any,
+  createDriverPayoutDto: CreateDriverPayoutDto
+) {
+  const driverId = req.user?._id;
 
-    if (!driver) {
-      throw new UnauthorizedException('Driver not found!');
-    }
+  const driver = await this.userModel.findOne({
+    _id: driverId,
+    role: 'driver',
+  }).populate('vehicleDetails earnings');
 
-    const { method, accountNumber, ifsc, accountHolderName, nickname, isDefault } = createDriverPayoutDto;
-
-    if (!method || !accountNumber || !accountHolderName) {
-      throw new BadRequestException('Method, account number, and account holder name are required!');
-    }
-
-    if (method === 'bank' && !ifsc) {
-      throw new BadRequestException('IFSC code is required for BANK payout method.');
-    }
-
-    if (isDefault) {
-      await this.DriverPayOutModel.updateMany(
-        { driverId, isDefault: true },
-        { isDefault: false }
-      );
-    }
-
-    const payoutAccount = await new this.DriverPayOutModel({
-      driverId,
-      method,
-      accountNumber,
-      ifsc: ifsc || null,
-      accountHolderName,
-      nickname: nickname || null,
-      isDefault: isDefault || false,
-      isActive: true,
-    });
-
-    await payoutAccount.save();
-
-    driver.payoutAccounts = payoutAccount._id as Types.ObjectId;
-    await driver.save();
-
-    return {
-      success: true,
-      message: 'Driver payout account created successfully',
-      data: payoutAccount,
-    };
+  if (!driver) {
+    throw new UnauthorizedException('Driver not found!');
   }
+
+  const { method, accountNumber, ifsc, accountHolderName, nickname, isDefault } =
+    createDriverPayoutDto;
+
+  // Required fields check
+  if (!method || !accountNumber || !accountHolderName) {
+    throw new BadRequestException(
+      'Method, account number, and account holder name are required!'
+    );
+  }
+
+  // Extra validation for BANK
+  if (method === 'bank' && !ifsc) {
+    throw new BadRequestException(
+      'IFSC code is required for BANK payout method.'
+    );
+  }
+
+  // If new account is default, unset existing defaults
+  if (isDefault) {
+    await this.DriverPayOutModel.updateMany(
+      { driverId, isDefault: true },
+      { isDefault: false }
+    );
+  }
+
+  // Create payout account
+  const payoutAccount = new this.DriverPayOutModel({
+    driverId,
+    method,
+    accountNumber,
+    ifsc: ifsc || null,
+    accountHolderName,
+    nickname: nickname || null,
+    isDefault: isDefault || false,
+    isActive: true,
+  });
+
+  await payoutAccount.save();
+
+  // ✅ Ensure payoutAccounts is an array and push new account
+  if (!Array.isArray(driver.payoutAccounts)) {
+    driver.payoutAccounts = [];
+  }
+
+  driver.payoutAccounts.push(payoutAccount._id as Types.ObjectId);
+  await driver.save();
+
+  return {
+    success: true,
+    message: 'Driver payout account created successfully',
+    data: payoutAccount,
+  };
+}
 
   async updateDriverEarnings(rideId: Types.ObjectId, driverId: Types.ObjectId, amount: number) {
     const session = await this.earningModel.db.startSession();
@@ -179,5 +197,66 @@ export class DriverService {
       session.endSession();
       throw new InternalServerErrorException('Failed to update driver earnings: ' + error.message);
     }
+  }
+
+  async getDriverEarnings(req: any) {
+    const driverId = req.user?._id;
+    
+    if (!driverId) {
+      throw new UnauthorizedException('Driver not authenticated');
+    }
+
+    const driver = await this.userModel.findById(driverId);
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    if (!driver.earnings) {
+      throw new NotFoundException('Earnings record not found for this driver');
+    }
+
+    const earnings = await this.earningModel.findById(driver.earnings);
+    if (!earnings) {
+      throw new NotFoundException('Earnings details not found');
+    }
+
+    return {
+      success: true,
+      message: 'Driver earnings retrieved successfully',
+      data: earnings
+    };
+  }
+
+  async getDriverEarningsHistory(req: any, page: number = 1, limit: number = 10) {
+    const driverId = req.user?._id;
+    
+    if (!driverId) {
+      throw new UnauthorizedException('Driver not authenticated');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const earningsHistory = await this.earningModel
+      .find({ driverId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('rideId', 'pickupLocation dropoffLocation fare status');
+
+    const total = await this.earningModel.countDocuments({ driverId });
+
+    return {
+      success: true,
+      message: 'Earnings history retrieved successfully',
+      data: {
+        earnings: earningsHistory,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total,
+          itemsPerPage: limit
+        }
+      }
+    };
   }
 }

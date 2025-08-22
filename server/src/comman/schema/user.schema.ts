@@ -73,10 +73,9 @@ export class User {
 
     @Prop({ required: true, default: false })
     isVerified: boolean;
-
-    @Prop({ type: Types.ObjectId, ref: DriverPayout.name })
-    payoutAccounts?: Types.ObjectId;
-
+    
+@Prop({ type: [{ type: Types.ObjectId, ref: DriverPayout.name }] })
+payoutAccounts?: Types.ObjectId[];
     @Prop({ type: Types.ObjectId, ref: DriverEarnings.name })
     earnings?: Types.ObjectId;
 }

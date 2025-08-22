@@ -20,6 +20,7 @@ const guads_module_1 = require("./comman/guards/guads.module");
 const ride_module_1 = require("./modules/ride/ride.module");
 const schedule_1 = require("@nestjs/schedule");
 const payment_module_1 = require("./comman/payment/payment.module");
+const invoice_module_1 = require("./comman/invoice/invoice.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -41,6 +42,8 @@ exports.AppModule = AppModule = __decorate([
             sms_module_1.SmsModule,
             guads_module_1.GuardModule,
             payment_module_1.PaymentModule,
+            driver_module_1.DriverModule,
+            invoice_module_1.InvoiceModule
         ],
     })
 ], AppModule);

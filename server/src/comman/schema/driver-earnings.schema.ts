@@ -21,8 +21,8 @@ export class DriverEarnings {
   @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   driverId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Ride' })
-  rideId?: Types.ObjectId;
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Ride' }] }) 
+  rideIds: Types.ObjectId[];
 
   @Prop({ required: true, enum: EarningsType })
   type: EarningsType;

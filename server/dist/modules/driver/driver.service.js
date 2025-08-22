@@ -120,7 +120,7 @@ let DriverService = class DriverService {
         if (isDefault) {
             await this.DriverPayOutModel.updateMany({ driverId, isDefault: true }, { isDefault: false });
         }
-        const payoutAccount = await new this.DriverPayOutModel({
+        const payoutAccount = new this.DriverPayOutModel({
             driverId,
             method,
             accountNumber,
@@ -131,7 +131,10 @@ let DriverService = class DriverService {
             isActive: true,
         });
         await payoutAccount.save();
-        driver.payoutAccounts = payoutAccount._id;
+        if (!Array.isArray(driver.payoutAccounts)) {
+            driver.payoutAccounts = [];
+        }
+        driver.payoutAccounts.push(payoutAccount._id);
         await driver.save();
         return {
             success: true,
@@ -160,6 +163,55 @@ let DriverService = class DriverService {
             session.endSession();
             throw new common_1.InternalServerErrorException('Failed to update driver earnings: ' + error.message);
         }
+    }
+    async getDriverEarnings(req) {
+        const driverId = req.user?._id;
+        if (!driverId) {
+            throw new common_1.UnauthorizedException('Driver not authenticated');
+        }
+        const driver = await this.userModel.findById(driverId);
+        if (!driver) {
+            throw new common_1.NotFoundException('Driver not found');
+        }
+        if (!driver.earnings) {
+            throw new common_1.NotFoundException('Earnings record not found for this driver');
+        }
+        const earnings = await this.earningModel.findById(driver.earnings);
+        if (!earnings) {
+            throw new common_1.NotFoundException('Earnings details not found');
+        }
+        return {
+            success: true,
+            message: 'Driver earnings retrieved successfully',
+            data: earnings
+        };
+    }
+    async getDriverEarningsHistory(req, page = 1, limit = 10) {
+        const driverId = req.user?._id;
+        if (!driverId) {
+            throw new common_1.UnauthorizedException('Driver not authenticated');
+        }
+        const skip = (page - 1) * limit;
+        const earningsHistory = await this.earningModel
+            .find({ driverId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('rideId', 'pickupLocation dropoffLocation fare status');
+        const total = await this.earningModel.countDocuments({ driverId });
+        return {
+            success: true,
+            message: 'Earnings history retrieved successfully',
+            data: {
+                earnings: earningsHistory,
+                pagination: {
+                    currentPage: page,
+                    totalPages: Math.ceil(total / limit),
+                    totalItems: total,
+                    itemsPerPage: limit
+                }
+            }
+        };
     }
 };
 exports.DriverService = DriverService;

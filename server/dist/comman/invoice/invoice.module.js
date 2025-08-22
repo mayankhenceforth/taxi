@@ -13,6 +13,9 @@ const invoice_service_1 = require("./invoice.service");
 const invoice_controller_1 = require("./invoice.controller");
 const ride_schema_1 = require("../schema/ride.schema");
 const user_schema_1 = require("../schema/user.schema");
+const geocoding_service_1 = require("./geocoding.service");
+const html_template_service_1 = require("./html-template.service");
+const pdf_service_1 = require("./pdf.service");
 let InvoiceModule = class InvoiceModule {
 };
 exports.InvoiceModule = InvoiceModule;
@@ -24,9 +27,9 @@ exports.InvoiceModule = InvoiceModule = __decorate([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
             ]),
         ],
-        providers: [invoice_service_1.InvoiceService],
-        controllers: [invoice_controller_1.InvoiceController],
-        exports: [invoice_service_1.InvoiceService],
+        providers: [invoice_service_1.InvoiceService, geocoding_service_1.GeocodingService, html_template_service_1.HtmlTemplateService, pdf_service_1.PdfGeneratorService],
+        controllers: [invoice_controller_1.InvoiceController,],
+        exports: [invoice_service_1.InvoiceService, geocoding_service_1.GeocodingService, html_template_service_1.HtmlTemplateService, pdf_service_1.PdfGeneratorService],
     })
 ], InvoiceModule);
 //# sourceMappingURL=invoice.module.js.map

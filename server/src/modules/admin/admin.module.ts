@@ -26,6 +26,6 @@ import { PaymentService } from 'src/comman/payment/payment.service';
             PaymentModule
   ],
   controllers: [AdminController],
-  providers: [AdminService,InvoiceService,PaymentService],
+  providers: [AdminService,InvoiceService,PaymentService ],
 })
 export class AdminModule {}

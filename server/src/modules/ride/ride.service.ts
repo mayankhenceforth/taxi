@@ -152,119 +152,253 @@ export class RideService {
     this.rideTimers.delete(rideId);
   }
 
+  private calculateFare(distance: number, vehicleType: string, options: {
+  isNight?: boolean;
+  hasTolls?: boolean;
+  hasParking?: boolean;
+  waitingTime?: number;
+  surgeMultiplier?: number;
+  promoCode?: string;
+} = {}) {
+  const {
+    isNight = false,
+    hasTolls = false,
+    hasParking = false,
+    waitingTime = 0,
+    surgeMultiplier = 1,
+    promoCode = null
+  } = options;
+
+  // Base rates
+  const baseRates = {
+    bike: parseFloat(process.env.RIDE_BIKE_FARE ?? '10'),
+    car: parseFloat(process.env.RIDE_CAR_FARE ?? '20')
+  };
+
+  const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '20');
+  const gstPercent = parseFloat(process.env.GST_PERCENT ?? '18');
+  const nightChargePercent = parseFloat(process.env.NIGHT_CHARGE_PERCENT ?? '25');
+  const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
+  const tollFee = parseFloat(process.env.TOLL_FEE ?? '50');
+  const parkingFee = parseFloat(process.env.PARKING_FEE ?? '30');
+
+  // Calculate base fare
+  const baseFare = distance * baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
+
+  // Additional charges
+  const surgeCharge = baseFare * (surgeMultiplier - 1);
+  const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
+  const waitingCharge = waitingTime * waitingChargePerMin;
+
+  // Subtotal before discounts
+  const subTotal = baseFare + surgeCharge + nightCharge + waitingCharge + 
+                  (hasTolls ? tollFee : 0) + (hasParking ? parkingFee : 0);
+
+  // Apply discounts
+  let promoDiscount = 0;
+  let referralDiscount = 0;
+  
+  // Calculate promo discount logic here
+  if (promoCode) {
+    promoDiscount = subTotal * 0.1; // Example: 10% discount for promo code
+  }
+
+  // GST calculation
+  const gstAmount = (subTotal - promoDiscount - referralDiscount) * (gstPercent / 100);
+
+  // Platform fee
+  const platformFee = (subTotal - promoDiscount - referralDiscount) * (platformFeePercent / 100);
+
+  // Total fare
+  const totalFare = subTotal + gstAmount + platformFee - promoDiscount - referralDiscount;
+
+  // Driver earnings (80% of base fare + surge + night charge - platform fee)
+  const driverEarnings = (baseFare + surgeCharge + nightCharge + waitingCharge) * 0.8;
+
+  return {
+    baseFare,
+    gstAmount,
+    platformFee,
+    surgeCharge,
+    nightCharge,
+    tollFee: hasTolls ? tollFee : 0,
+    parkingFee: hasParking ? parkingFee : 0,
+    waitingCharge,
+    bonusAmount: 0,
+    referralDiscount,
+    promoDiscount,
+    subTotal,
+    totalFare: Math.round(totalFare),
+    driverEarnings: Math.round(driverEarnings),
+    platformEarnings: Math.round(platformFee),
+    fareBreakdown: {
+      baseFare,
+      gstAmount,
+      platformFee,
+      surgeCharge,
+      nightCharge,
+      tollFee: hasTolls ? tollFee : 0,
+      parkingFee: hasParking ? parkingFee : 0,
+      waitingCharge,
+      bonusAmount: 0,
+      referralDiscount,
+      promoDiscount,
+      subTotal,
+      totalFare: Math.round(totalFare)
+    }
+  };
+}
+
   /** --- Ride Methods --- */
 
   async createRide(request: any, createRideDto: CreateRideDto): Promise<ApiResponse<any>> {
-    const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
+  const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
 
-    if (!request.user?._id) throw new UnauthorizedException('User not found!');
+  if (!request.user?._id) throw new UnauthorizedException('User not found!');
 
-    const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
+  const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
 
-    let farePerKm: number;
-let gstPercent: number;
+  let farePerKm: number;
+  let gstPercent: number;
 
-switch (vehicleType.toLowerCase()) {
-  case 'bike':
-    farePerKm = parseFloat(process.env.RIDE_BIKE_FARE ?? '10');
-    gstPercent = parseFloat(process.env.RIDE_BIKE_GST ?? '5');
-    break;
-  case 'car':
-    farePerKm = parseFloat(process.env.RIDE_CAR_FARE ?? '20');
-    gstPercent = parseFloat(process.env.RIDE_CAR_GST ?? '12');
-    break;
+  switch (vehicleType.toLowerCase()) {
+    case 'bike':
+      farePerKm = parseFloat(process.env.RIDE_BIKE_FARE ?? '10');
+      gstPercent = parseFloat(process.env.RIDE_BIKE_GST ?? '5');
+      break;
+    case 'car':
+      farePerKm = parseFloat(process.env.RIDE_CAR_FARE ?? '20');
+      gstPercent = parseFloat(process.env.RIDE_CAR_GST ?? '12');
+      break;
+    default:
+      farePerKm = parseFloat(process.env.RIDE_FARE ?? '15');
+      gstPercent = parseFloat(process.env.RIDE_FARE_GST ?? '10');
+  }
 
-  default:
-    farePerKm = parseFloat(process.env.RIDE_FARE ?? '15');
-    gstPercent = parseFloat(process.env.RIDE_FARE_GST ?? '10');
+  // Calculate base fare and total fare
+  const baseFare = distance * farePerKm;
+  const tax = baseFare * (gstPercent / 100);
+  const totalFare = Math.round(baseFare + tax);
+
+  if (totalFare <= 0) throw new BadRequestException('Invalid fare calculation');
+
+  const newRide = await this.TemporyRideModel.create({
+    pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
+    dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
+    bookedBy: request.user._id,
+    vehicleType,
+    distance,
+    baseFare, // Add this field
+    estimatedGst: tax, // Add this field
+    estimatedPlatformFee: 0, // You can calculate this if needed
+    surgeMultiplier: 1, // Default to 1
+    fare: totalFare,
+    status: 'processing',
+    eligibleDrivers: [],
+  });
+
+  const rideDetails = await this.TemporyRideModel.aggregate([
+    { $match: { _id: newRide._id } },
+    { $lookup: { from: 'users', localField: 'bookedBy', foreignField: '_id', as: 'bookedBy' } },
+    { $unwind: '$bookedBy' },
+    {
+      $project: {
+        _id: 1,
+        bookedBy: { _id: 1, name: 1, profilePic: 1, email: 1, contactNumber: 1 },
+        vehicleType: 1,
+        status: 1,
+        pickupLocation: '$pickupLocation.coordinates',
+        dropoffLocation: '$dropoffLocation.coordinates',
+        distance: 1,
+        baseFare: 1, // Include in projection
+        fare: 1,
+      },
+    },
+  ]);
+
+  await this.sendRideRequestToDrivers(newRide);
+
+  return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
 }
 
-// Calculate total fare
-const baseFare = distance * farePerKm;
-const tax = baseFare * (gstPercent / 100);
-const totalFare = Math.round(baseFare + tax);
-
-
-    if (totalFare <= 0) throw new BadRequestException('Invalid fare calculation');
-
-    const newRide = await this.TemporyRideModel.create({
-      pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
-      dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
-      bookedBy: request.user._id,
-      vehicleType,
-      distance,
-      fare: totalFare,
-      status: 'processing',
-      eligibleDrivers: [],
-    });
-
-    const rideDetails = await this.TemporyRideModel.aggregate([
-      { $match: { _id: newRide._id } },
-      { $lookup: { from: 'users', localField: 'bookedBy', foreignField: '_id', as: 'bookedBy' } },
-      { $unwind: '$bookedBy' },
-      {
-        $project: {
-          _id: 1,
-          bookedBy: { _id: 1, name: 1, profilePic: 1, email: 1, contactNumber: 1 },
-          vehicleType: 1,
-          status: 1,
-          pickupLocation: '$pickupLocation.coordinates',
-          dropoffLocation: '$dropoffLocation.coordinates',
-          distance: 1,
-          fare: 1,
-        },
-      },
-    ]);
-
-    await this.sendRideRequestToDrivers(newRide);
-
-    return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
-  }
-
   async acceptRide(rideId: string, request: any): Promise<ApiResponse<any>> {
-    const driver = request.user;
-    if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
+  const driver = request.user;
+  if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
 
-    const tempRide = await this.TemporyRideModel.findOneAndUpdate(
-      { _id: new Types.ObjectId(rideId), status: 'processing', eligibleDrivers: driver._id },
-      { $set: { driver: driver._id, status: 'accepted' } },
-      { new: true },
-    );
-    if (!tempRide) throw new BadRequestException('Ride already accepted, not found, or you are not eligible!');
+  const tempRide = await this.TemporyRideModel.findOneAndUpdate(
+    { _id: new Types.ObjectId(rideId), status: 'processing', eligibleDrivers: driver._id },
+    { $set: { driver: driver._id, status: 'accepted' } },
+    { new: true },
+  );
+  if (!tempRide) throw new BadRequestException('Ride already accepted, not found, or you are not eligible!');
 
-    this.clearRideTimers(rideId);
+  this.clearRideTimers(rideId);
 
-    const otp = crypto.randomInt(1000, 9999).toString();
-    const newRideDoc = await this.rideModel.create({
-      bookedBy: tempRide.bookedBy,
-      driver: driver._id,
-      vehicleType: tempRide.vehicleType,
-      pickupLocation: tempRide.pickupLocation,
-      dropoffLocation: tempRide.dropoffLocation,
-      distance: tempRide.distance,
-      fare: tempRide.fare,
-      status: 'accepted',
-      otp,
-      TotalFare: tempRide.fare,
-    });
-
-    await newRideDoc.populate('bookedBy driver');
-    await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
-
-    const user = await this.userModel.findById(newRideDoc.bookedBy);
-    if (user) {
-      await this.twilioClient.messages.create({
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: `+91${user.contactNumber}`,
-        body: `Your ride OTP is ${otp}.`,
-      });
+  const otp = crypto.randomInt(1000, 9999).toString();
+  
+  // Calculate the complete fare breakdown for the permanent ride
+  const fareBreakdown = this.calculateFare(
+    tempRide.distance,
+    tempRide.vehicleType,
+    {
+      // You can pass additional options here if needed
+      surgeMultiplier: tempRide.surgeMultiplier || 1,
     }
+  );
 
-    const { otp: _, ...rideData } = newRideDoc.toObject();
-    this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), rideData);
+  const newRideDoc = await this.rideModel.create({
+    bookedBy: tempRide.bookedBy,
+    driver: driver._id,
+    vehicleType: tempRide.vehicleType,
+    pickupLocation: tempRide.pickupLocation,
+    dropoffLocation: tempRide.dropoffLocation,
+    distance: tempRide.distance,
+    
+    // Fare details
+    baseFare: tempRide.baseFare,
+    gstAmount: tempRide.estimatedGst || 0,
+    platformFee: fareBreakdown.platformFee,
+    surgeMultiplier: tempRide.surgeMultiplier || 1,
+    surgeCharge: fareBreakdown.surgeCharge,
+    nightCharge: fareBreakdown.nightCharge,
+    tollFee: fareBreakdown.tollFee,
+    parkingFee: fareBreakdown.parkingFee,
+    waitingCharge: fareBreakdown.waitingCharge,
+    bonusAmount: 0,
+    referralDiscount: 0,
+    promoDiscount: 0,
+    
+    // Total calculations
+    subTotal: fareBreakdown.subTotal,
+    TotalFare: tempRide.fare,
+    driverEarnings: fareBreakdown.driverEarnings,
+    platformEarnings: fareBreakdown.platformEarnings,
+    
+    // Fare breakdown object
+    fareBreakdown: fareBreakdown.fareBreakdown,
+    
+    status: 'accepted',
+    otp,
+    acceptedAt: new Date(),
+  });
 
-    return new ApiResponse(true, 'Ride accepted successfully!', HttpStatus.OK, newRideDoc);
+  await newRideDoc.populate('bookedBy driver');
+  await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
+
+  const user = await this.userModel.findById(newRideDoc.bookedBy);
+  if (user) {
+    await this.twilioClient.messages.create({
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: `+91${user.contactNumber}`,
+      body: `Your ride OTP is ${otp}.`,
+    });
   }
+
+  const { otp: _, ...rideData } = newRideDoc.toObject();
+  this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), rideData);
+
+  return new ApiResponse(true, 'Ride accepted successfully!', HttpStatus.OK, newRideDoc);
+}
 
   async verifyRideOtp(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto, role: Role): Promise<ApiResponse<any>> {
     const user = request.user;

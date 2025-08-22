@@ -13,6 +13,7 @@ import { DriverEarnings, DriverEarningsSchema } from 'src/comman/schema/driver-e
   imports: [
     ConfigModule,
     JwtModule.registerAsync({
+      imports: [ConfigModule], // Add ConfigModule to imports
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('ACCESS_TOKEN_SECRET'),
@@ -27,7 +28,7 @@ import { DriverEarnings, DriverEarningsSchema } from 'src/comman/schema/driver-e
     ])
   ],
   controllers: [DriverController],
-  providers: [DriverService, AuthGuards, DriverService],
+  providers: [DriverService, AuthGuards], // REMOVED: Duplicate DriverService
   exports: [DriverService],
 })
 export class DriverModule { }

@@ -25,6 +25,7 @@ exports.DriverModule = DriverModule = __decorate([
         imports: [
             config_1.ConfigModule,
             jwt_1.JwtModule.registerAsync({
+                imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
                 useFactory: (config) => ({
                     secret: config.get('ACCESS_TOKEN_SECRET'),
@@ -39,7 +40,7 @@ exports.DriverModule = DriverModule = __decorate([
             ])
         ],
         controllers: [driver_controller_1.DriverController],
-        providers: [driver_service_1.DriverService, auth_guards_1.AuthGuards, driver_service_1.DriverService],
+        providers: [driver_service_1.DriverService, auth_guards_1.AuthGuards],
         exports: [driver_service_1.DriverService],
     })
 ], DriverModule);

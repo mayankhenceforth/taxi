@@ -16,7 +16,7 @@ exports.DriverController = void 0;
 const common_1 = require("@nestjs/common");
 const driver_service_1 = require("./driver.service");
 const SetupDriverAccount_dto_1 = require("./dto/SetupDriverAccount.dto");
-const CreatePaymentAccount_dt_o_1 = require("./dto/CreatePaymentAccount.dt.o");
+const CreatePaymentAccount_dto_1 = require("./dto/CreatePaymentAccount.dto");
 const swagger_1 = require("@nestjs/swagger");
 const auth_guards_1 = require("../../comman/guards/auth.guards");
 const role_guards_1 = require("../../comman/guards/role.guards");
@@ -34,6 +34,10 @@ let DriverController = class DriverController {
         return this.driverService.createPaymentAccount(req, createDriverPayoutDto);
     }
     async getDriverEarnings(req) {
+        return this.driverService.getDriverEarnings(req);
+    }
+    async getDriverEarningsHistory(req, page = 1, limit = 10) {
+        return this.driverService.getDriverEarningsHistory(req, page, limit);
     }
 };
 exports.DriverController = DriverController;
@@ -52,17 +56,32 @@ __decorate([
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, CreatePaymentAccount_dt_o_1.CreateDriverPayoutDto]),
+    __metadata("design:paramtypes", [Object, CreatePaymentAccount_dto_1.CreateDriverPayoutDto]),
     __metadata("design:returntype", Promise)
 ], DriverController.prototype, "createPayoutAccount", null);
 __decorate([
     (0, common_1.Get)('earnings'),
     (0, swagger_1.ApiOperation)({ summary: 'Get driver earnings' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Driver earnings retrieved successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Driver earnings not found' }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], DriverController.prototype, "getDriverEarnings", null);
+__decorate([
+    (0, common_1.Get)('earnings/history'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get driver earnings history with pagination' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Earnings history retrieved successfully' }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number, description: 'Page number' }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number, description: 'Items per page' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Number, Number]),
+    __metadata("design:returntype", Promise)
+], DriverController.prototype, "getDriverEarningsHistory", null);
 exports.DriverController = DriverController = __decorate([
     (0, swagger_1.ApiTags)('Driver'),
     (0, swagger_1.ApiBearerAuth)(),

@@ -8,6 +8,7 @@ import { SmsModule } from "./sms/sms.module";
 import { PaymentModule } from './payment/payment.module';
 import { InvoiceModule } from './invoice/invoice.module';
 
+
 @Global()
 @Module({
     imports: [
@@ -24,7 +25,9 @@ import { InvoiceModule } from './invoice/invoice.module';
         otpModule,
         SmsModule,
         PaymentModule,
-        InvoiceModule
+        InvoiceModule,
+    
+        
     ],
     exports: [MongooseModule]
 })

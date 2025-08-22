@@ -111,8 +111,8 @@ __decorate([
     __metadata("design:type", Boolean)
 ], User.prototype, "isVerified", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: payout_schema_1.DriverPayout.name }),
-    __metadata("design:type", mongoose_2.Types.ObjectId)
+    (0, mongoose_1.Prop)({ type: [{ type: mongoose_2.Types.ObjectId, ref: payout_schema_1.DriverPayout.name }] }),
+    __metadata("design:type", Array)
 ], User.prototype, "payoutAccounts", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: driver_earnings_schema_1.DriverEarnings.name }),

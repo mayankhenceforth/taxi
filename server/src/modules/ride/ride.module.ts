@@ -16,7 +16,6 @@ import { InvoiceModule } from 'src/comman/invoice/invoice.module';
 import { CloudinaryModule } from 'src/comman/cloudinary/cloudinary.module';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 import { DriverModule } from '../driver/driver.module';
-import { DriverService } from '../driver/driver.service';
 import { DriverEarnings, DriverEarningsSchema } from 'src/comman/schema/driver-earnings.schema';
 import { DriverPayout, DriverPayoutSchema } from 'src/comman/schema/payout.schema';
 
@@ -30,9 +29,29 @@ import { DriverPayout, DriverPayoutSchema } from 'src/comman/schema/payout.schem
       { name: DriverPayout.name, schema: DriverPayoutSchema },
       { name: DriverEarnings.name, schema: DriverEarningsSchema },
     ]),
-    DriverModule
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('ACCESS_TOKEN_SECRET'),
+        signOptions: { expiresIn: '1d' },
+      }),
+    }),
+    ConfigModule.forRoot(),
+    DriverModule,
+    InvoiceModule,
+    CloudinaryModule,
+    PaymentModule,
   ],
   controllers: [RideController],
-  providers: [RideService, RideGateway,PaymentService, AuthGuards, RoleGuards, RideCronService,CloudinaryService,DriverService],
+  providers: [
+    RideService, 
+    RideGateway,
+    PaymentService, 
+    AuthGuards, 
+    RoleGuards, 
+    RideCronService,
+    CloudinaryService,
+  ],
 })
 export class RideModule { }
