@@ -3,17 +3,19 @@ import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { RideDocument } from '../schema/ride.schema';
 import { Model } from 'mongoose';
+import { Request } from 'express';
 export declare class PaymentController {
     private readonly paymentService;
     private rideModel;
     private totalAmount;
     private rideId;
     constructor(paymentService: PaymentService, rideModel: Model<RideDocument>);
-    handleCreatePaymentSession(): Promise<string | null>;
-    handlePaymentSucess(): string;
+    handleCreatePaymentSession(amount?: number, rideId?: string): Promise<string | null>;
+    handlePaymentSuccess(): string;
     handlePaymentCancel(): string;
-    handleWebhook(req: Request): Promise<{
+    handleWebhook(req: Request, sig: string): Promise<{
         received: boolean;
+        message: string;
     }>;
     handleRefund(intentId: string, rideId: string): Promise<{
         message: string;

@@ -5,6 +5,7 @@ import { cencelRideDto } from './dto/cencel-ride.dto';
 import { Response } from 'express';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
+import { RideRatingDto } from './dto/rating.dto';
 export declare class RideController {
     private readonly rideService;
     private readonly paymentService;
@@ -12,9 +13,11 @@ export declare class RideController {
     constructor(rideService: RideService, paymentService: PaymentService, invoiceService: InvoiceService);
     create(request: any, createRideDto: CreateRideDto): Promise<import("../../comman/helpers/api-response").default<any>>;
     handleAcceptRide(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
-    handleOtpRide(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto): Promise<import("../../comman/helpers/api-response").default<any>>;
     handleCancelRide(rideId: string, request: any, cancelRideDto: cencelRideDto): Promise<import("../../comman/helpers/api-response").default<any>>;
+    handleDriverArrive(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
+    handleOtpRide(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto): Promise<import("../../comman/helpers/api-response").default<any>>;
     handlePaymentRide(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
     confirmRidePayment(rideId: string, res: Response): Promise<void>;
     handlePaymentcomplete(rideId: string, request: any): Promise<import("../../comman/helpers/api-response").default<any>>;
+    handleRideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<import("../../comman/helpers/api-response").default<any>>;
 }

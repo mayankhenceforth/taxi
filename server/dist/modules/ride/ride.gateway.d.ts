@@ -7,6 +7,8 @@ export declare class RideGateway {
     sendRideRequest(driverId: string, rideDetails: any): void;
     sendRideAccepted(userId: string, rideDetails: any): void;
     sendRideTerminated(userId: string, rideDetails: any): void;
+    sendDriverArrived(userId: string, rideDetails: any): void;
+    sendDriverStarted(userId: string, rideDetails: any): void;
     sendRidePaymentConfirmed(userId: string, rideDetails: any): void;
     sendRideCompleted(userId: string, rideDetails: any): void;
 }

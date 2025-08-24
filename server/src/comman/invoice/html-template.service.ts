@@ -76,7 +76,8 @@ export class HtmlTemplateService {
 
   generateBaseStyles(primaryColor: string = "#fcad02dc", watermarkOpacity: string = "0.20"): string {
     return `
-      body { font-family: 'Helvetica', Arial, sans-serif; margin: 15px; font-size: 12px; color: #333; text-transform: uppercase; }
+      body { font-family: 'Helvetica', Arial, sans-serif; margin: 15px; font-size: 12px; color: #333; text-transform: capitalize;
+; }
       .container { max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
       .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid ${primaryColor}; padding-bottom: 15px; }
       .company-info { flex: 2; }

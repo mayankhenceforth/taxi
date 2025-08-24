@@ -10,7 +10,6 @@ exports.InvoiceModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const invoice_service_1 = require("./invoice.service");
-const invoice_controller_1 = require("./invoice.controller");
 const ride_schema_1 = require("../schema/ride.schema");
 const user_schema_1 = require("../schema/user.schema");
 const geocoding_service_1 = require("./geocoding.service");
@@ -27,9 +26,13 @@ exports.InvoiceModule = InvoiceModule = __decorate([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
             ]),
         ],
-        providers: [invoice_service_1.InvoiceService, geocoding_service_1.GeocodingService, html_template_service_1.HtmlTemplateService, pdf_service_1.PdfGeneratorService],
-        controllers: [invoice_controller_1.InvoiceController,],
-        exports: [invoice_service_1.InvoiceService, geocoding_service_1.GeocodingService, html_template_service_1.HtmlTemplateService, pdf_service_1.PdfGeneratorService],
+        providers: [
+            invoice_service_1.InvoiceService,
+            html_template_service_1.HtmlTemplateService,
+            pdf_service_1.PdfGeneratorService,
+            geocoding_service_1.GeocodingService,
+        ],
+        exports: [invoice_service_1.InvoiceService],
     })
 ], InvoiceModule);
 //# sourceMappingURL=invoice.module.js.map

@@ -15,8 +15,12 @@ import { PdfGeneratorService } from './pdf.service';
       { name: User.name, schema: UserSchema },
     ]),
   ],
-  providers: [InvoiceService,GeocodingService,HtmlTemplateService,PdfGeneratorService ],
-  controllers: [InvoiceController,],
-  exports: [InvoiceService,GeocodingService,HtmlTemplateService,PdfGeneratorService],
+  providers: [
+    InvoiceService,
+    HtmlTemplateService,
+    PdfGeneratorService,
+    GeocodingService,
+  ],
+  exports: [InvoiceService],
 })
 export class InvoiceModule {}

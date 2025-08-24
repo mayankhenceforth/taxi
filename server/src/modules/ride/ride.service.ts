@@ -1,3 +1,4 @@
+// src/modules/ride/ride.service.ts
 import {
   BadGatewayException,
   BadRequestException,
@@ -10,35 +11,42 @@ import {
 import { Ride, RideDocument, TemporaryRide, TemporaryRideDocument } from '../../comman/schema/ride.schema';
 import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
+import { Logger } from '@nestjs/common';
 import ApiResponse from 'src/comman/helpers/api-response';
 import { CreateRideDto } from './dto/create-ride.dto';
 import { RideGateway } from './ride.gateway';
 import { User, UserDocument } from 'src/comman/schema/user.schema';
 import * as crypto from 'crypto';
 import * as twilio from 'twilio';
+import * as retry from 'async-retry';
 import { Role } from 'src/comman/enums/role.enum';
 import { VerifyRideOtpDto } from './dto/verify-ride-otp.dto';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 import { DriverService } from '../driver/driver.service';
+import { MailService } from 'src/comman/mail/mail.service';
+import { RideRatingDto } from './dto/rating.dto';
+import { RideRating, RideRatingDocument } from 'src/comman/schema/rating.schma';
+import { log } from 'console';
 
 @Injectable()
 export class RideService {
+  private readonly logger = new Logger(RideService.name);
   private rideTimers: Map<string, { userTimeout: NodeJS.Timeout; driverTimeouts: NodeJS.Timeout[] }> = new Map();
-
   private readonly twilioClient;
-
 
   constructor(
     @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
     @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(RideRating.name) private readonly rideRatingModel: Model<RideRatingDocument>,
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
     private readonly cloudinaryService: CloudinaryService,
-    private readonly driverService :DriverService
+    private readonly driverService: DriverService,
+    private readonly mailService: MailService,
   ) {
     const accountSid = process.env.TWILIO_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -152,253 +160,336 @@ export class RideService {
     this.rideTimers.delete(rideId);
   }
 
-  private calculateFare(distance: number, vehicleType: string, options: {
-  isNight?: boolean;
-  hasTolls?: boolean;
-  hasParking?: boolean;
-  waitingTime?: number;
-  surgeMultiplier?: number;
-  promoCode?: string;
-} = {}) {
-  const {
-    isNight = false,
-    hasTolls = false,
-    hasParking = false,
-    waitingTime = 0,
-    surgeMultiplier = 1,
-    promoCode = null
-  } = options;
+  private calculateFare(
+    distance: number,
+    vehicleType: string,
+    options: {
+      isNight?: boolean;
+      hasTolls?: boolean;
+      hasParking?: boolean;
+      waitingTime?: number;
+      surgeMultiplier?: number;
+      promoCode?: string;
+    } = {},
+  ) {
+    const {
+      isNight = false,
+      hasTolls = distance > 20,
+      hasParking = false,
+      waitingTime = 0,
+      surgeMultiplier = 1,
+      promoCode = null,
+    } = options;
 
-  // Base rates
-  const baseRates = {
-    bike: parseFloat(process.env.RIDE_BIKE_FARE ?? '10'),
-    car: parseFloat(process.env.RIDE_CAR_FARE ?? '20')
-  };
+    const baseRates = {
+      bike: parseFloat(process.env.RIDE_BIKE_FARE ?? '15'),
+      car: parseFloat(process.env.RIDE_CAR_FARE ?? '20'),
+    };
 
-  const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '20');
-  const gstPercent = parseFloat(process.env.GST_PERCENT ?? '18');
-  const nightChargePercent = parseFloat(process.env.NIGHT_CHARGE_PERCENT ?? '25');
-  const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
-  const tollFee = parseFloat(process.env.TOLL_FEE ?? '50');
-  const parkingFee = parseFloat(process.env.PARKING_FEE ?? '30');
+    const gstRates = {
+      bike: parseFloat(process.env.RIDE_BIKE_GST ?? '12'),
+      car: parseFloat(process.env.RIDE_CAR_GST ?? '16'),
+    };
 
-  // Calculate base fare
-  const baseFare = distance * baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
+    const platformFeePercent = parseFloat(process.env.PLATFORM_FEE_PERCENT ?? '20');
+    const nightChargePercent = parseFloat(process.env.NIGHT_CHARGE_PERCENT ?? '25');
+    const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
+    const parkingFee = parseFloat(process.env.PARKING_FEE ?? '30');
+    const tollPricePerKm = parseFloat(process.env.TOLL_PRICE_PER_KM ?? '2');
+    const excessDistanceRate = parseFloat(process.env.EXCESS_DISTANCE_RATE ?? '3');
 
-  // Additional charges
-  const surgeCharge = baseFare * (surgeMultiplier - 1);
-  const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
-  const waitingCharge = waitingTime * waitingChargePerMin;
+    let baseFare = 0;
+    const baseRate = baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
 
-  // Subtotal before discounts
-  const subTotal = baseFare + surgeCharge + nightCharge + waitingCharge + 
-                  (hasTolls ? tollFee : 0) + (hasParking ? parkingFee : 0);
+    if (distance > 20) {
+      baseFare = 20 * baseRate + (distance - 20) * (baseRate + excessDistanceRate);
+    } else {
+      baseFare = distance * baseRate;
+    }
 
-  // Apply discounts
-  let promoDiscount = 0;
-  let referralDiscount = 0;
-  
-  // Calculate promo discount logic here
-  if (promoCode) {
-    promoDiscount = subTotal * 0.1; // Example: 10% discount for promo code
-  }
+    const surgeCharge = baseFare * (surgeMultiplier - 1);
+    const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
+    const waitingCharge = waitingTime * waitingChargePerMin;
+    const tollFee = hasTolls ? distance * tollPricePerKm : 0;
 
-  // GST calculation
-  const gstAmount = (subTotal - promoDiscount - referralDiscount) * (gstPercent / 100);
+    const subTotal = baseFare + surgeCharge + nightCharge + waitingCharge + tollFee + (hasParking ? parkingFee : 0);
 
-  // Platform fee
-  const platformFee = (subTotal - promoDiscount - referralDiscount) * (platformFeePercent / 100);
+    let promoDiscount = 0;
+    let referralDiscount = 0;
+    if (promoCode) promoDiscount = subTotal * 0.1;
 
-  // Total fare
-  const totalFare = subTotal + gstAmount + platformFee - promoDiscount - referralDiscount;
+    const gstPercent = gstRates[vehicleType.toLowerCase() as keyof typeof gstRates];
+    const gstAmount = (subTotal - promoDiscount - referralDiscount) * (gstPercent / 100);
+    const platformFee = (subTotal - promoDiscount - referralDiscount) * (platformFeePercent / 100);
 
-  // Driver earnings (80% of base fare + surge + night charge - platform fee)
-  const driverEarnings = (baseFare + surgeCharge + nightCharge + waitingCharge) * 0.8;
+    const totalFare = subTotal + gstAmount + platformFee - promoDiscount - referralDiscount;
+    const driverEarnings = (baseFare + surgeCharge + nightCharge + waitingCharge) * 0.8;
 
-  return {
-    baseFare,
-    gstAmount,
-    platformFee,
-    surgeCharge,
-    nightCharge,
-    tollFee: hasTolls ? tollFee : 0,
-    parkingFee: hasParking ? parkingFee : 0,
-    waitingCharge,
-    bonusAmount: 0,
-    referralDiscount,
-    promoDiscount,
-    subTotal,
-    totalFare: Math.round(totalFare),
-    driverEarnings: Math.round(driverEarnings),
-    platformEarnings: Math.round(platformFee),
-    fareBreakdown: {
+    // Log fare details using Logger
+    this.logger.debug('Fare Calculation Details:', {
+      distance: Number(distance.toFixed(2)),
+      baseFare: Number(baseFare.toFixed(2)),
+      surgeCharge: Number(surgeCharge.toFixed(2)),
+      nightCharge: Number(nightCharge.toFixed(2)),
+      waitingCharge: Number(waitingCharge.toFixed(2)),
+      tollFee: Number(tollFee.toFixed(2)),
+      parkingFee: hasParking ? parkingFee : 0,
+      subTotal: Number(subTotal.toFixed(2)),
+      promoDiscount: Number(promoDiscount.toFixed(2)),
+      referralDiscount: Number(referralDiscount.toFixed(2)),
+      gstAmount: Number(gstAmount.toFixed(2)),
+      platformFee: Number(platformFee.toFixed(2)),
+      totalFare: Math.round(totalFare),
+      driverEarnings: Math.round(driverEarnings),
+    });
+
+    return {
       baseFare,
       gstAmount,
       platformFee,
       surgeCharge,
       nightCharge,
-      tollFee: hasTolls ? tollFee : 0,
+      tollFee,
       parkingFee: hasParking ? parkingFee : 0,
       waitingCharge,
       bonusAmount: 0,
       referralDiscount,
       promoDiscount,
       subTotal,
-      totalFare: Math.round(totalFare)
-    }
-  };
-}
+      totalFare: Math.round(totalFare),
+      driverEarnings: Math.round(driverEarnings),
+      platformEarnings: Math.round(platformFee),
+      fareBreakdown: {
+        baseFare,
+        gstAmount,
+        platformFee,
+        surgeCharge,
+        nightCharge,
+        tollFee,
+        parkingFee: hasParking ? parkingFee : 0,
+        waitingCharge,
+        bonusAmount: 0,
+        referralDiscount,
+        promoDiscount,
+        subTotal,
+        totalFare: Math.round(totalFare),
+      },
+    };
+  }
 
   /** --- Ride Methods --- */
 
   async createRide(request: any, createRideDto: CreateRideDto): Promise<ApiResponse<any>> {
-  const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
+    const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
 
-  if (!request.user?._id) throw new UnauthorizedException('User not found!');
+    if (!request.user?._id) throw new UnauthorizedException('User not found!');
 
-  const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
+    // Validate coordinates
+    if (
+      !Array.isArray(pickupLocationCoordinates) ||
+      pickupLocationCoordinates.length !== 2 ||
+      !Array.isArray(dropoffLocationCoordinates) ||
+      dropoffLocationCoordinates.length !== 2
+    ) {
+      throw new BadRequestException('Invalid coordinates format');
+    }
+    const [lon1, lat1] = pickupLocationCoordinates;
+    const [lon2, lat2] = dropoffLocationCoordinates;
+    if (lon1 < -180 || lon1 > 180 || lat1 < -90 || lat1 > 90 || lon2 < -180 || lon2 > 180 || lat2 < -90 || lat2 > 90) {
+      throw new BadRequestException('Coordinates out of valid range');
+    }
 
-  let farePerKm: number;
-  let gstPercent: number;
+    const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
+    const fareDetails = this.calculateFare(distance, vehicleType, {});
 
-  switch (vehicleType.toLowerCase()) {
-    case 'bike':
-      farePerKm = parseFloat(process.env.RIDE_BIKE_FARE ?? '10');
-      gstPercent = parseFloat(process.env.RIDE_BIKE_GST ?? '5');
-      break;
-    case 'car':
-      farePerKm = parseFloat(process.env.RIDE_CAR_FARE ?? '20');
-      gstPercent = parseFloat(process.env.RIDE_CAR_GST ?? '12');
-      break;
-    default:
-      farePerKm = parseFloat(process.env.RIDE_FARE ?? '15');
-      gstPercent = parseFloat(process.env.RIDE_FARE_GST ?? '10');
-  }
+    const {
+      baseFare,
+      gstAmount,
+      platformFee,
+      tollFee,
+      surgeCharge,
+      nightCharge,
+      waitingCharge,
+      parkingFee,
+      promoDiscount,
+      referralDiscount,
+      totalFare,
+      driverEarnings,
+      platformEarnings,
+      fareBreakdown,
+    } = fareDetails;
 
-  // Calculate base fare and total fare
-  const baseFare = distance * farePerKm;
-  const tax = baseFare * (gstPercent / 100);
-  const totalFare = Math.round(baseFare + tax);
+    const newRide = await this.TemporyRideModel.create({
+      pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
+      dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
+      bookedBy: request.user._id,
+      vehicleType,
+      sentToRadius: 5,
+      distance,
+      TotalFare: totalFare,
+      driverEarnings,
+      platformEarnings,
+      fareBreakdown,
+      status: 'processing',
+      paymentStatus: 'unpaid',
+      eligibleDrivers: [],
+      otp: crypto.randomInt(100000, 999999), // Secure 6-digit OTP
+    });
 
-  if (totalFare <= 0) throw new BadRequestException('Invalid fare calculation');
-
-  const newRide = await this.TemporyRideModel.create({
-    pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
-    dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
-    bookedBy: request.user._id,
-    vehicleType,
-    distance,
-    baseFare, // Add this field
-    estimatedGst: tax, // Add this field
-    estimatedPlatformFee: 0, // You can calculate this if needed
-    surgeMultiplier: 1, // Default to 1
-    fare: totalFare,
-    status: 'processing',
-    eligibleDrivers: [],
-  });
-
-  const rideDetails = await this.TemporyRideModel.aggregate([
-    { $match: { _id: newRide._id } },
-    { $lookup: { from: 'users', localField: 'bookedBy', foreignField: '_id', as: 'bookedBy' } },
-    { $unwind: '$bookedBy' },
-    {
-      $project: {
-        _id: 1,
-        bookedBy: { _id: 1, name: 1, profilePic: 1, email: 1, contactNumber: 1 },
-        vehicleType: 1,
-        status: 1,
-        pickupLocation: '$pickupLocation.coordinates',
-        dropoffLocation: '$dropoffLocation.coordinates',
-        distance: 1,
-        baseFare: 1, // Include in projection
-        fare: 1,
+    const rideDetails = await this.TemporyRideModel.aggregate([
+      { $match: { _id: newRide._id } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'bookedBy',
+          foreignField: '_id',
+          as: 'bookedBy',
+        },
       },
-    },
-  ]);
+      { $unwind: '$bookedBy' },
+      {
+        $project: {
+          _id: 1,
+          bookedBy: { _id: 1, name: 1, profilePic: 1, email: 1, contactNumber: 1 },
+          vehicleType: 1,
+          status: 1,
+          pickupLocation: '$pickupLocation.coordinates',
+          dropoffLocation: '$dropoffLocation.coordinates',
+          distance: 1,
+          TotalFare: 1,
+          driverEarnings: 1,
+          platformEarnings: 1,
+          fareBreakdown: 1,
+          paymentStatus: 1,
+          otp: 1,
+        },
+      },
+    ]);
 
-  await this.sendRideRequestToDrivers(newRide);
+    await this.sendRideRequestToDrivers(newRide);
 
-  return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
-}
+    return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
+  }
 
   async acceptRide(rideId: string, request: any): Promise<ApiResponse<any>> {
-  const driver = request.user;
-  if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
+    const driver = request.user;
+    if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not a driver!');
 
-  const tempRide = await this.TemporyRideModel.findOneAndUpdate(
-    { _id: new Types.ObjectId(rideId), status: 'processing', eligibleDrivers: driver._id },
-    { $set: { driver: driver._id, status: 'accepted' } },
-    { new: true },
-  );
-  if (!tempRide) throw new BadRequestException('Ride already accepted, not found, or you are not eligible!');
+    const tempRide = await this.TemporyRideModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(rideId), status: 'processing', eligibleDrivers: driver._id },
+      { $set: { driver: driver._id, status: 'accepted' } },
+      { new: true },
+    );
+    if (!tempRide) throw new BadRequestException('Ride already accepted, not found, or you are not eligible!');
 
-  this.clearRideTimers(rideId);
+    this.clearRideTimers(rideId);
 
-  const otp = crypto.randomInt(1000, 9999).toString();
-  
-  // Calculate the complete fare breakdown for the permanent ride
-  const fareBreakdown = this.calculateFare(
-    tempRide.distance,
-    tempRide.vehicleType,
-    {
-      // You can pass additional options here if needed
-      surgeMultiplier: tempRide.surgeMultiplier || 1,
-    }
-  );
+    const otp = crypto.randomInt(1000, 9999).toString();
 
-  const newRideDoc = await this.rideModel.create({
-    bookedBy: tempRide.bookedBy,
-    driver: driver._id,
-    vehicleType: tempRide.vehicleType,
-    pickupLocation: tempRide.pickupLocation,
-    dropoffLocation: tempRide.dropoffLocation,
-    distance: tempRide.distance,
-    
-    // Fare details
-    baseFare: tempRide.baseFare,
-    gstAmount: tempRide.estimatedGst || 0,
-    platformFee: fareBreakdown.platformFee,
-    surgeMultiplier: tempRide.surgeMultiplier || 1,
-    surgeCharge: fareBreakdown.surgeCharge,
-    nightCharge: fareBreakdown.nightCharge,
-    tollFee: fareBreakdown.tollFee,
-    parkingFee: fareBreakdown.parkingFee,
-    waitingCharge: fareBreakdown.waitingCharge,
-    bonusAmount: 0,
-    referralDiscount: 0,
-    promoDiscount: 0,
-    
-    // Total calculations
-    subTotal: fareBreakdown.subTotal,
-    TotalFare: tempRide.fare,
-    driverEarnings: fareBreakdown.driverEarnings,
-    platformEarnings: fareBreakdown.platformEarnings,
-    
-    // Fare breakdown object
-    fareBreakdown: fareBreakdown.fareBreakdown,
-    
-    status: 'accepted',
-    otp,
-    acceptedAt: new Date(),
-  });
+    const fareBreakdown = this.calculateFare(tempRide.distance, tempRide.vehicleType, { surgeMultiplier: 1 });
 
-  await newRideDoc.populate('bookedBy driver');
-  await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
-
-  const user = await this.userModel.findById(newRideDoc.bookedBy);
-  if (user) {
-    await this.twilioClient.messages.create({
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: `+91${user.contactNumber}`,
-      body: `Your ride OTP is ${otp}.`,
+    const newRideDoc = await this.rideModel.create({
+      _id: rideId,
+      bookedBy: tempRide.bookedBy,
+      driver: driver._id,
+      vehicleType: tempRide.vehicleType,
+      pickupLocation: tempRide.pickupLocation,
+      dropoffLocation: tempRide.dropoffLocation,
+      distance: tempRide.distance,
+      baseFare: fareBreakdown.baseFare,
+      gstAmount: fareBreakdown.gstAmount,
+      platformFee: fareBreakdown.platformFee,
+      surgeCharge: fareBreakdown.surgeCharge,
+      nightCharge: fareBreakdown.nightCharge,
+      tollFee: fareBreakdown.tollFee,
+      parkingFee: fareBreakdown.parkingFee,
+      waitingCharge: fareBreakdown.waitingCharge,
+      bonusAmount: 0,
+      referralDiscount: 0,
+      promoDiscount: 0,
+      subTotal: fareBreakdown.subTotal,
+      TotalFare: fareBreakdown.totalFare,
+      driverEarnings: fareBreakdown.driverEarnings,
+      platformEarnings: fareBreakdown.platformEarnings,
+      fareBreakdown: fareBreakdown.fareBreakdown,
+      status: 'accepted',
+      otp,
+      acceptedAt: new Date(),
     });
+
+    await newRideDoc.populate('bookedBy driver');
+    await this.TemporyRideModel.findByIdAndDelete(tempRide._id);
+
+    const user = await this.userModel.findById(newRideDoc.bookedBy);
+    if (user) {
+      await retry(
+        async () => {
+          await this.twilioClient.messages.create({
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: `${user.contactNumber}`,
+            body: `Your ride OTP is ${otp}.`,
+          });
+        },
+        // {
+        //   retries: 3,
+        //   factor: 2,
+        //   minTimeout: 1000,
+        //   maxTimeout: 5000,
+        //   onRetry: (error) => this.logger.warn(`Retrying Twilio SMS: ${error.message}`),
+        // },
+      ).catch((error) => {
+        this.logger.error(`Failed to send OTP SMS after retries: ${error.message}`);
+        this.rideGateway.sendRideTerminated(user._id.toString(), {
+          rideId,
+          message: 'Failed to send OTP. Please contact support.',
+        });
+      });
+    }
+
+    const { otp: _, ...rideData } = newRideDoc.toObject();
+    this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), rideData);
+
+    return new ApiResponse(true, 'Ride accepted successfully!', HttpStatus.OK, rideData);
   }
 
-  const { otp: _, ...rideData } = newRideDoc.toObject();
-  this.rideGateway.sendRideAccepted(tempRide.bookedBy.toString(), rideData);
+  async driverArrive(rideId: string, request: any): Promise<ApiResponse<any>> {
+    if (!rideId) throw new BadRequestException('Ride ID is required');
+    if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid Ride ID format');
 
-  return new ApiResponse(true, 'Ride accepted successfully!', HttpStatus.OK, newRideDoc);
-}
+    const driver = request.user;
+    if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not authorized as a driver');
+
+    const ride = await this.rideModel.findById(rideId);
+    if (!ride) throw new NotFoundException('Ride not found');
+
+    if (ride.driver?.toString() !== driver._id.toString()) throw new UnauthorizedException('You are not assigned to this ride');
+
+    if (ride.status !== 'accepted') throw new BadRequestException(`Ride cannot be marked as arrived from current status: ${ride.status}`);
+
+    const updatedRide = await this.rideModel.findByIdAndUpdate(
+      rideId,
+      {
+        status: 'arrived',
+        arrivedAt: new Date(),
+      },
+      { new: true },
+    ).populate('bookedBy driver');
+
+    if (!updatedRide) throw new NotFoundException('Ride not found after update');
+
+    this.rideGateway.sendDriverArrived(ride.bookedBy.toString(), {
+      rideId: updatedRide._id,
+      message: 'Driver has arrived at your location',
+      driver: updatedRide.driver,
+      arrivedAt: updatedRide.arrivedAt,
+    });
+
+    return new ApiResponse(true, 'Driver arrival recorded successfully!', HttpStatus.OK, {
+      rideId: updatedRide._id,
+      status: updatedRide.status,
+      arrivedAt: updatedRide.arrivedAt,
+    });
+  }
 
   async verifyRideOtp(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto, role: Role): Promise<ApiResponse<any>> {
     const user = request.user;
@@ -413,9 +504,39 @@ export class RideService {
     if (!ride.otp) throw new BadRequestException('No OTP found for this ride');
     if (ride.otp !== verifyRideOtpDto.otp) throw new BadRequestException('Invalid OTP');
 
+    // Calculate waiting fee if ride has been in 'arrived' status for too long
+    if (ride.status === 'arrived' && ride.arrivedAt) {
+      const waitingTimeMinutes = (Date.now() - new Date(ride.arrivedAt).getTime()) / (1000 * 60);
+      if (waitingTimeMinutes > 5) {
+        const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
+        const additionalWaitingCharge = Math.floor(waitingTimeMinutes - 5) * waitingChargePerMin;
+
+        const fareDetails = this.calculateFare(ride.distance, ride.vehicleType, {
+          isNight: ride.fareBreakdown.nightCharge > 0,
+          hasTolls: ride.fareBreakdown.tollFee > 0,
+          hasParking: ride.fareBreakdown.parkingFee > 0,
+          waitingTime: ride.fareBreakdown.waitingCharge + additionalWaitingCharge,
+          surgeMultiplier: 1,
+        });
+
+        ride.fareBreakdown = fareDetails.fareBreakdown;
+        ride.TotalFare = fareDetails.totalFare;
+        ride.driverEarnings = fareDetails.driverEarnings;
+        ride.platformEarnings = fareDetails.platformEarnings;
+
+        
+      }
+    }
+
     ride.status = 'started';
     ride.otp = 0;
+    ride.startedAt = new Date();
     await ride.save();
+
+    this.rideGateway.sendDriverStarted(ride.bookedBy.toString(), {
+      rideId: ride._id,
+      message: 'Ride has started.',
+    });
 
     return new ApiResponse(true, 'OTP verified successfully!', HttpStatus.OK, ride);
   }
@@ -436,6 +557,7 @@ export class RideService {
     ride.status = 'cancelled';
     ride.cancelReason = reason;
     ride.cancelledBy = isDriver ? 'Driver' : 'User';
+    ride.cancelledAt = new Date();
     await ride.save();
 
     this.clearRideTimers(rideId);
@@ -461,7 +583,6 @@ export class RideService {
     if (ride.status !== 'started') throw new BadRequestException('Ride is not in a state to pay for');
     if (ride.paymentStatus === 'paid') throw new BadRequestException('Ride already paid');
 
-  
     const totalAmount = ride.TotalFare;
 
     const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
@@ -469,110 +590,210 @@ export class RideService {
 
     const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount * 100, rideId);
 
-    return new ApiResponse(true, 'Checkout session created', 200, { url: session });
+    return new ApiResponse(true, 'Checkout session created', HttpStatus.OK, { url: session });
   }
 
   async confirmPayment(rideId: string): Promise<Buffer> {
-  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-  if (!ride) throw new NotFoundException('Ride not found');
+    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+    if (!ride) throw new NotFoundException('Ride not found');
 
-  ride.paymentStatus = 'paid';
-  await ride.save();
+    ride.paymentStatus = 'paid';
+    ride.paidAt = new Date();
+    await ride.save();
 
-  const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-  if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
+    const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+    if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
 
-  if (ride.invoiceUrl) {
-    const oldPublicId = ride.invoiceUrl
-      .split('/upload/')[1] 
-      .replace(/\.[^/.]+$/, "");
-    await this.cloudinaryService.deleteFile(oldPublicId);
-  }
-
-  const uploadResult = await this.cloudinaryService.uploadFile({
-    buffer: pdfBuffer,
-    originalname: `invoice-${rideId}.pdf`,
-  });
-
-  if (!uploadResult) {
-    throw new BadRequestException('Failed to upload invoice to cloud');
-  }
-
-  
-  let baseUrl = uploadResult.secure_url.replace(
-    '/upload/',
-    '/upload/fl_attachment:false/'
-  );
-
-  ride.invoiceUrl = baseUrl;
-  await ride.save();
-
-  console.log('Invoice URL:', baseUrl);
-
- 
-  this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
-    rideId: ride._id,
-    message: 'Payment confirmed successfully',
-    invoiceUrl: baseUrl
-  });
-
-  return pdfBuffer;
-}
-
-   async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
-  if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid rideId');
-  
-  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-  if (!ride) throw new NotFoundException('Ride not found');
-
-  const user = request.user;
-  if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
-    throw new UnauthorizedException('Not authorized');
-
-  if (ride.paymentStatus !== 'paid') 
-    throw new BadRequestException('Ride not complete, payment not completed');
-
-  if (ride.status === "cancelled") 
-    throw new BadRequestException("Ride cannot be completed as it was cancelled");
-
-  const session = await this.rideModel.db.startSession();
-  session.startTransaction();
-
-  try {
-    ride.status = 'completed';
-    ride.completedAt = new Date();
-    await ride.save({ session });
-
-    const driverEarnings = await this.driverService.updateDriverEarnings(
-      ride._id as Types.ObjectId,
-      ride.driver._id as Types.ObjectId,
-      ride.TotalFare * 0.8
-    );
-
-    await session.commitTransaction();
-    session.endSession();
-
-    this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
-      rideId: ride._id,
-      message: 'Ride completed successfully'
-    });
-
-    if (ride.driver) {
-      this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
-        rideId: ride._id,
-        message: 'Ride completed successfully',
-        earnings: ride.TotalFare * 0.8
+    if (ride.invoiceUrl) {
+      const oldPublicId = ride.invoiceUrl.split('/upload/')[1]?.replace(/\.[^/.]+$/, '');
+      await this.cloudinaryService.deleteFile(oldPublicId).catch((error) => {
+        this.logger.error(`Failed to delete old invoice from Cloudinary: ${error.message}`);
       });
     }
 
-    return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, {
-      ride,
-      earnings: driverEarnings
+    const uploadResult = await this.cloudinaryService.uploadFile({
+      buffer: pdfBuffer,
+      originalname: `invoice-${rideId}.pdf`,
     });
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
+
+    if (!uploadResult) throw new BadRequestException('Failed to upload invoice to cloud');
+
+    const baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
+    ride.invoiceUrl = baseUrl;
+    await ride.save();
+
+    this.logger.log(`Invoice uploaded to Cloudinary: ${baseUrl}`);
+
+    this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+      rideId: ride._id,
+      message: 'Payment confirmed successfully',
+      invoiceUrl: baseUrl,
+    });
+
+    // Send invoice email
+    try {
+      const email = 'mayank8355@gmail.com'; // Fallback email
+      const subject = 'Ride Payment Confirmed - Your Invoice';
+      await this.mailService.sendPdf({ email, subject, pdfBuffer });
+      this.logger.log(`Invoice email sent successfully to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send invoice email: ${error.message}`);
+      this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
+        rideId: ride._id,
+        message: 'Failed to send invoice email. Please contact support.',
+      });
+    }
+
+    return pdfBuffer;
   }
+
+  async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
+    if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid rideId');
+
+    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+    if (!ride) throw new NotFoundException('Ride not found');
+
+    const user = request.user;
+    if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
+      throw new UnauthorizedException('Not authorized');
+
+    if (ride.paymentStatus !== 'paid') throw new BadRequestException('Ride not complete, payment not completed');
+    if (ride.status === 'cancelled') throw new BadRequestException('Ride cannot be completed as it was cancelled');
+
+    const session = await this.rideModel.db.startSession();
+    session.startTransaction();
+
+    try {
+      ride.status = 'completed';
+      ride.completedAt = new Date();
+      await ride.save({ session });
+
+      const driverEarnings = await this.driverService.updateDriverEarnings(
+        ride._id as Types.ObjectId,
+        ride.driver._id as Types.ObjectId,
+        ride.TotalFare * 0.8,
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+
+      // Generate and send invoice email
+      let pdfBuffer: Buffer;
+      try {
+        pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+        if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) throw new BadRequestException('PDF buffer not created');
+
+        const email = 'mayank8355@gmail.com'; // Fallback email
+        const subject = 'Ride Completed - Your Invoice';
+
+        await this.mailService.sendPdf({ email, subject, pdfBuffer });
+        this.logger.log(`Invoice email sent successfully to ${email}`);
+      } catch (error) {
+        this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
+        this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
+          rideId: ride._id,
+          message: 'Failed to send invoice email. Please contact support.',
+        });
+      }
+
+      this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+        rideId: ride._id,
+        message: 'Ride completed successfully',
+      });
+
+      if (ride.driver) {
+        this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
+          rideId: ride._id,
+          message: 'Ride completed successfully',
+          earnings: ride.TotalFare * 0.8,
+        });
+      }
+
+      return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, {
+        ride,
+        earnings: driverEarnings,
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
+      throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
+    }
+  }
+
+async rideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<ApiResponse<any>> {
+    // Validate rideId
+    if (!Types.ObjectId.isValid(rideId)) {
+        throw new BadRequestException('Invalid rideId');
+    }
+
+    // Find ride with populated references
+    const ride = await this.rideModel
+        .findById(rideId)
+        .populate('bookedBy driver');
+
+        console.log("ride info",ride)
+    
+    if (!ride) {
+        throw new NotFoundException('Ride not found');
+    }
+
+    if(ride.status !== "completed"){
+      throw new BadRequestException("Oops:Ride not complete")
+    }
+
+    // Validate user authorization
+    const user = request.user;
+    if (!user || !ride.bookedBy || user._id.toString() !== ride.bookedBy._id.toString()) {
+        throw new UnauthorizedException('Only the passenger who booked the ride can rate it');
+    }
+
+
+    // Validate rating value
+    if (ratingDto.rating < 1 || ratingDto.rating > 5) {
+        throw new BadRequestException('Rating must be between 1 and 5');
+    }
+
+    // Check if rating already exists for this ride and user
+    const existingRating = await this.rideRatingModel.findOne({
+        ride: rideId,
+        user: user._id,
+    });
+
+    if (existingRating) {
+        throw new BadRequestException('This ride has already been rated by the user');
+    }
+
+    // Create new rating
+    const newRating = new this.rideRatingModel({
+        driver: ride.driver,
+        user: user._id,
+        ride: rideId,
+        rating: ratingDto.rating,
+        message: ratingDto.message,
+    });
+
+    // Save rating
+    await newRating.save();
+
+    // Update driver's average rating
+    // await this.updateDriverRating(ride.driver?._id);
+
+    return new ApiResponse(true, 'Ride rated successfully!', HttpStatus.OK, {
+        rating: newRating,
+    });
+}
+
+// Helper method to update driver's average rating
+private async updateDriverRating(driverId: Types.ObjectId): Promise<void> {
+    const ratings = await this.rideRatingModel.find({ driver: driverId });
+    
+    if (ratings.length > 0) {
+        const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
+        
+        await this.userModel.updateOne(
+            { _id: driverId },
+            { $set: { rating: Number(averageRating.toFixed(1)) } }
+        );
+    }
 }
 }

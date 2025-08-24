@@ -16,7 +16,11 @@ export declare class AdminController {
     }>>;
     deleteAdmin(deleteEntryDto: DeleteEntryDto): Promise<import("../../comman/helpers/api-response").default<unknown>>;
     deleteUser(deleteEntryDto: DeleteEntryDto): Promise<import("../../comman/helpers/api-response").default<unknown>>;
-    updateAdminDetails(updateEntryDto: UpdateEntryDto): Promise<import("../../comman/helpers/api-response").default<unknown>>;
+    updateAdminDetails(updateEntryDto: UpdateEntryDto): Promise<import("../../comman/helpers/api-response").default<(import("mongoose").Document<unknown, {}, import("../../comman/schema/user.schema").UserDocument, {}, {}> & import("../../comman/schema/user.schema").User & Document & {
+        _id: import("mongoose").Types.ObjectId;
+    } & {
+        __v: number;
+    }) | null>>;
     updateUserDetails(updateEntryDto: UpdateEntryDto): Promise<import("../../comman/helpers/api-response").default<(import("mongoose").Document<unknown, {}, import("../../comman/schema/user.schema").UserDocument, {}, {}> & import("../../comman/schema/user.schema").User & Document & {
         _id: import("mongoose").Types.ObjectId;
     } & {

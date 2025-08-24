@@ -8,39 +8,24 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RideModule = void 0;
 const common_1 = require("@nestjs/common");
-const mongoose_1 = require("@nestjs/mongoose");
-const ride_schema_1 = require("../../comman/schema/ride.schema");
-const user_schema_1 = require("../../comman/schema/user.schema");
-const ride_service_1 = require("./ride.service");
 const ride_controller_1 = require("./ride.controller");
+const ride_service_1 = require("./ride.service");
 const ride_gateway_1 = require("./ride.gateway");
-const auth_guards_1 = require("../../comman/guards/auth.guards");
-const role_guards_1 = require("../../comman/guards/role.guards");
+const ride_cron_service_1 = require("./ride.cron.service");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
-const ride_cron_service_1 = require("./ride.cron.service");
-const payment_module_1 = require("../../comman/payment/payment.module");
-const payment_service_1 = require("../../comman/payment/payment.service");
+const driver_module_1 = require("../driver/driver.module");
 const invoice_module_1 = require("../../comman/invoice/invoice.module");
 const cloudinary_module_1 = require("../../comman/cloudinary/cloudinary.module");
-const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
-const driver_module_1 = require("../driver/driver.module");
-const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
-const payout_schema_1 = require("../../comman/schema/payout.schema");
+const payment_module_1 = require("../../comman/payment/payment.module");
+const mail_module_1 = require("../../comman/mail/mail.module");
 let RideModule = class RideModule {
 };
 exports.RideModule = RideModule;
 exports.RideModule = RideModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([
-                { name: ride_schema_1.Ride.name, schema: ride_schema_1.RideSchema },
-                { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema },
-                { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
-                { name: user_schema_1.VehicleDetails.name, schema: user_schema_1.vehicleDetailsSchema },
-                { name: payout_schema_1.DriverPayout.name, schema: payout_schema_1.DriverPayoutSchema },
-                { name: driver_earnings_schema_1.DriverEarnings.name, schema: driver_earnings_schema_1.DriverEarningsSchema },
-            ]),
+            config_1.ConfigModule,
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 inject: [config_1.ConfigService],
@@ -49,21 +34,17 @@ exports.RideModule = RideModule = __decorate([
                     signOptions: { expiresIn: '1d' },
                 }),
             }),
-            config_1.ConfigModule.forRoot(),
             driver_module_1.DriverModule,
             invoice_module_1.InvoiceModule,
             cloudinary_module_1.CloudinaryModule,
             payment_module_1.PaymentModule,
+            mail_module_1.MailModule,
         ],
         controllers: [ride_controller_1.RideController],
         providers: [
             ride_service_1.RideService,
             ride_gateway_1.RideGateway,
-            payment_service_1.PaymentService,
-            auth_guards_1.AuthGuards,
-            role_guards_1.RoleGuards,
             ride_cron_service_1.RideCronService,
-            cloudinary_service_1.CloudinaryService,
         ],
     })
 ], RideModule);

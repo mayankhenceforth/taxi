@@ -6,7 +6,9 @@ import { TokenModule } from './token/token.module';
 import { otpModule } from "./otp/otp.module";
 import { SmsModule } from "./sms/sms.module";
 import { PaymentModule } from './payment/payment.module';
-import { InvoiceModule } from './invoice/invoice.module';
+import { InvoiceModule } from "./invoice/invoice.module";
+import { MailModule } from "./mail/mail.module";
+
 
 
 @Global()
@@ -26,6 +28,9 @@ import { InvoiceModule } from './invoice/invoice.module';
         SmsModule,
         PaymentModule,
         InvoiceModule,
+        MailModule
+
+        
     
         
     ],

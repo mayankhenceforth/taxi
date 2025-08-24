@@ -45,7 +45,7 @@ let AdminController = class AdminController {
         return this.adminService.deleteEntry(deleteEntryDto, role_enum_1.Role.User);
     }
     updateAdminDetails(updateEntryDto) {
-        return this.adminService.deleteEntry(updateEntryDto, role_enum_1.Role.Admin);
+        return this.adminService.updateEntry(updateEntryDto, role_enum_1.Role.Admin);
     }
     updateUserDetails(updateEntryDto) {
         return this.adminService.updateEntry(updateEntryDto, role_enum_1.Role.User);
@@ -67,7 +67,7 @@ let AdminController = class AdminController {
         res.set({
             "Content-Type": "application/pdf",
             "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
-            "Content-Length": pdfBuffer.length,
+            "Content-Length": pdfBuffer.length.toString(),
         });
         return res.end(pdfBuffer);
     }
@@ -75,8 +75,8 @@ let AdminController = class AdminController {
         const pdfBuffer = await this.adminService.getNewUsers(filter);
         res.set({
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
-            "Content-Length": pdfBuffer.length,
+            "Content-Disposition": `attachment; filename="new-users-${filter || 'all'}.pdf"`,
+            "Content-Length": pdfBuffer.length.toString(),
         });
         return res.end(pdfBuffer);
     }
@@ -84,8 +84,8 @@ let AdminController = class AdminController {
         const pdfBuffer = await this.adminService.getNewRides(filter);
         res.set({
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="total-income-${filter || 'all'}.pdf"`,
-            "Content-Length": pdfBuffer.length,
+            "Content-Disposition": `attachment; filename="new-rides-${filter || 'all'}.pdf"`,
+            "Content-Length": pdfBuffer.length.toString(),
         });
         return res.end(pdfBuffer);
     }
@@ -97,6 +97,23 @@ exports.AdminController = AdminController;
 __decorate([
     (0, common_1.Get)('users'),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get all users',
+        description: 'Retrieve a list of all users in the system. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'page',
+        required: false,
+        type: Number,
+        description: 'Page number for pagination'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Number of items per page'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully retrieved users list' }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [get_users_dto_1.GetUsersDto]),
@@ -105,6 +122,14 @@ __decorate([
 __decorate([
     (0, common_1.Post)("create-admin"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Create new admin',
+        description: 'Create a new admin user. Requires SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiBody)({ type: create_admin_dto_1.CreateNewEntryDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Admin created successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Invalid input data' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Conflict - User already exists' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_admin_dto_1.CreateNewEntryDto]),
@@ -113,6 +138,14 @@ __decorate([
 __decorate([
     (0, common_1.Post)("create-user"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Create new user',
+        description: 'Create a new regular user. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiBody)({ type: create_admin_dto_1.CreateNewEntryDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User created successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Invalid input data' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Conflict - User already exists' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [create_admin_dto_1.CreateNewEntryDto]),
@@ -121,6 +154,13 @@ __decorate([
 __decorate([
     (0, common_1.Delete)("delete-admin/:_id"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Delete admin',
+        description: 'Delete an admin user by ID. Requires SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({ name: '_id', type: String, description: 'MongoDB ObjectId of the admin to delete' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Admin deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Admin not found' }),
     __param(0, (0, common_1.Param)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [delete_entry_dto_1.DeleteEntryDto]),
@@ -129,6 +169,13 @@ __decorate([
 __decorate([
     (0, common_1.Delete)("delete-user/:_id"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Delete user',
+        description: 'Delete a regular user by ID. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({ name: '_id', type: String, description: 'MongoDB ObjectId of the user to delete' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
     __param(0, (0, common_1.Param)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [delete_entry_dto_1.DeleteEntryDto]),
@@ -137,6 +184,14 @@ __decorate([
 __decorate([
     (0, common_1.Patch)("update-admin"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update admin details',
+        description: 'Update admin user information. Requires SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiBody)({ type: update_admin_dto_1.UpdateEntryDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Admin updated successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Invalid input data' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Admin not found' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [update_admin_dto_1.UpdateEntryDto]),
@@ -145,6 +200,14 @@ __decorate([
 __decorate([
     (0, common_1.Patch)("update-user"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update user details',
+        description: 'Update regular user information. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiBody)({ type: update_admin_dto_1.UpdateEntryDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User updated successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Invalid input data' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [update_admin_dto_1.UpdateEntryDto]),
@@ -153,6 +216,11 @@ __decorate([
 __decorate([
     (0, common_1.Get)("all_ride"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get all rides',
+        description: 'Retrieve details of all rides in the system. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully retrieved rides list' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
@@ -160,22 +228,37 @@ __decorate([
 __decorate([
     (0, common_1.Get)("all_temp_ride"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get all temporary rides',
+        description: 'Retrieve details of all temporary/unsaved rides. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully retrieved temporary rides list' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "getTemporaryRideDetails", null);
 __decorate([
+    (0, common_1.Post)("all_ride_with_status"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get rides by status',
+        description: 'Retrieve rides filtered by specific status (completed, pending, cancelled, etc.). Requires Admin or SuperAdmin role.'
+    }),
     (0, swagger_1.ApiBody)({
         schema: {
             type: 'object',
             properties: {
-                status: { type: 'string', example: 'completed' }
+                status: {
+                    type: 'string',
+                    example: 'completed',
+                    description: 'Ride status to filter by (completed, pending, cancelled, started)'
+                }
             },
             required: ['status'],
         },
     }),
-    (0, common_1.Post)("all_ride_with_status"),
-    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully retrieved filtered rides' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Invalid status provided' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -184,7 +267,17 @@ __decorate([
 __decorate([
     (0, common_1.Get)("ride_report/:rideId"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
-    (0, swagger_1.ApiParam)({ name: 'rideId', type: String, description: 'ID of the ride to fetch invoice for' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get ride invoice',
+        description: 'Generate and retrieve a detailed invoice PDF for a specific ride. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'rideId',
+        type: String,
+        description: 'MongoDB ObjectId of the ride to generate invoice for'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully generated ride invoice' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Ride not found' }),
     __param(0, (0, common_1.Param)('rideId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -193,6 +286,32 @@ __decorate([
 __decorate([
     (0, common_1.Get)("total_earning_report/:filter"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Generate total earnings report',
+        description: 'Generate a PDF report of total earnings filtered by time period. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'filter',
+        type: String,
+        description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
+        examples: {
+            '1 hour': { value: '1h' },
+            '1 day': { value: '1d' },
+            '1 week': { value: '1w' },
+            '1 month': { value: '1m' },
+            'All time': { value: '' }
+        }
+    }),
+    (0, swagger_1.ApiProduces)('application/pdf'),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'PDF report generated successfully',
+        content: {
+            'application/pdf': {
+                schema: { type: 'string', format: 'binary' }
+            }
+        }
+    }),
     __param(0, (0, common_1.Param)("filter")),
     __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
@@ -202,6 +321,32 @@ __decorate([
 __decorate([
     (0, common_1.Get)("new_users_report/:filter"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Generate new users report',
+        description: 'Generate a PDF report of new users registered filtered by time period. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'filter',
+        type: String,
+        description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
+        examples: {
+            '1 hour': { value: '1h' },
+            '1 day': { value: '1d' },
+            '1 week': { value: '1w' },
+            '1 month': { value: '1m' },
+            'All time': { value: '' }
+        }
+    }),
+    (0, swagger_1.ApiProduces)('application/pdf'),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'PDF report generated successfully',
+        content: {
+            'application/pdf': {
+                schema: { type: 'string', format: 'binary' }
+            }
+        }
+    }),
     __param(0, (0, common_1.Param)("filter")),
     __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
@@ -211,6 +356,32 @@ __decorate([
 __decorate([
     (0, common_1.Get)("new_rides_report/:filter"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Generate new rides report',
+        description: 'Generate a PDF report of new rides created filtered by time period. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'filter',
+        type: String,
+        description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
+        examples: {
+            '1 hour': { value: '1h' },
+            '1 day': { value: '1d' },
+            '1 week': { value: '1w' },
+            '1 month': { value: '1m' },
+            'All time': { value: '' }
+        }
+    }),
+    (0, swagger_1.ApiProduces)('application/pdf'),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'PDF report generated successfully',
+        content: {
+            'application/pdf': {
+                schema: { type: 'string', format: 'binary' }
+            }
+        }
+    }),
     __param(0, (0, common_1.Param)("filter")),
     __param(1, (0, common_1.Res)()),
     __metadata("design:type", Function),
@@ -220,8 +391,19 @@ __decorate([
 __decorate([
     (0, common_1.Post)("payment_refund/:rideId"),
     (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
-    (0, swagger_1.ApiOperation)({ summary: 'Process a refund for a specific ride' }),
-    (0, swagger_1.ApiParam)({ name: 'rideId', type: String, description: 'ID of the ride to refund' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Process payment refund',
+        description: 'Initiate a refund for a specific ride payment. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'rideId',
+        type: String,
+        description: 'MongoDB ObjectId of the ride to process refund for'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Refund processed successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Refund cannot be processed' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Ride not found' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal server error - Payment gateway issue' }),
     __param(0, (0, common_1.Param)('rideId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -231,6 +413,9 @@ exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),
     (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiTags)('Admin Management'),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized - Invalid or missing token' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden - Insufficient permissions' }),
     __metadata("design:paramtypes", [admin_service_1.AdminService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

@@ -43,6 +43,18 @@ let RideGateway = class RideGateway {
             this.server.to(userSocketId).emit('ride-terminated', rideDetails);
         }
     }
+    sendDriverArrived(userId, rideDetails) {
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('Driver  is arrived he is waiting .....', rideDetails);
+        }
+    }
+    sendDriverStarted(userId, rideDetails) {
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('ride started', rideDetails);
+        }
+    }
     sendRidePaymentConfirmed(userId, rideDetails) {
         const userSocketId = this.connectedUsers.get(userId);
         if (userSocketId) {

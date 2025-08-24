@@ -16,6 +16,7 @@ const otp_module_1 = require("./otp/otp.module");
 const sms_module_1 = require("./sms/sms.module");
 const payment_module_1 = require("./payment/payment.module");
 const invoice_module_1 = require("./invoice/invoice.module");
+const mail_module_1 = require("./mail/mail.module");
 let CommonModule = class CommonModule {
 };
 exports.CommonModule = CommonModule;
@@ -37,6 +38,7 @@ exports.CommonModule = CommonModule = __decorate([
             sms_module_1.SmsModule,
             payment_module_1.PaymentModule,
             invoice_module_1.InvoiceModule,
+            mail_module_1.MailModule
         ],
         exports: [mongoose_1.MongooseModule]
     })

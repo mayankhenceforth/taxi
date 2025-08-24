@@ -43,7 +43,15 @@ let DriverController = class DriverController {
 exports.DriverController = DriverController;
 __decorate([
     (0, common_1.Post)('setup-account'),
-    (0, swagger_1.ApiOperation)({ summary: 'Setup driver account with vehicle details' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Set up driver account',
+        description: 'Allows a driver to set up their account with vehicle and personal details.'
+    }),
+    (0, swagger_1.ApiBody)({ type: SetupDriverAccount_dto_1.SetupDriverAccountDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Driver account set up successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid input data.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized access.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Driver role required.' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -52,7 +60,15 @@ __decorate([
 ], DriverController.prototype, "setupDriverAccount", null);
 __decorate([
     (0, common_1.Post)('payout-account'),
-    (0, swagger_1.ApiOperation)({ summary: 'Create payout account for driver' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Create driver payout account',
+        description: 'Sets up a payout account for the driver to receive earnings.'
+    }),
+    (0, swagger_1.ApiBody)({ type: CreatePaymentAccount_dto_1.CreateDriverPayoutDto }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Payout account created successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid payout account details.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized access.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Driver role required.' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -61,9 +77,14 @@ __decorate([
 ], DriverController.prototype, "createPayoutAccount", null);
 __decorate([
     (0, common_1.Get)('earnings'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get driver earnings' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Driver earnings retrieved successfully' }),
-    (0, swagger_1.ApiResponse)({ status: 404, description: 'Driver earnings not found' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Retrieve driver earnings',
+        description: 'Fetches the total earnings for the authenticated driver.'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Driver earnings retrieved successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized access.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Driver role required.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Driver earnings not found.' }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -71,10 +92,17 @@ __decorate([
 ], DriverController.prototype, "getDriverEarnings", null);
 __decorate([
     (0, common_1.Get)('earnings/history'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get driver earnings history with pagination' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Earnings history retrieved successfully' }),
-    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number, description: 'Page number' }),
-    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number, description: 'Items per page' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Retrieve driver earnings history',
+        description: 'Fetches the paginated earnings history for the authenticated driver.'
+    }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Earnings history retrieved successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid pagination parameters.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized access.' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Driver role required.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'No earnings history found.' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('page')),
     __param(2, (0, common_1.Query)('limit')),

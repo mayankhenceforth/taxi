@@ -6,6 +6,7 @@ export class PdfGeneratorService {
   async generatePdfFromHtml(html: string): Promise<Buffer> {
     const browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+     headless: 'new' as any
     });
     
     const page = await browser.newPage();

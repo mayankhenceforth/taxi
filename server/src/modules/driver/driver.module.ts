@@ -1,34 +1,25 @@
 import { Module } from '@nestjs/common';
-import { DriverService } from './driver.service';
 import { DriverController } from './driver.controller';
+import { DriverService } from './driver.service';
+
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
-import { AuthGuards } from '../../comman/guards/auth.guards';
-import { User, UserSchema, VehicleDetails, vehicleDetailsSchema } from 'src/comman/schema/user.schema';
-import { DriverPayout, DriverPayoutSchema } from 'src/comman/schema/payout.schema';
-import { DriverEarnings, DriverEarningsSchema } from 'src/comman/schema/driver-earnings.schema';
+import { AuthGuards } from 'src/comman/guards/auth.guards';
 
 @Module({
   imports: [
     ConfigModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule], // Add ConfigModule to imports
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('ACCESS_TOKEN_SECRET'),
         signOptions: { expiresIn: '1d' },
       }),
     }),
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: VehicleDetails.name, schema: vehicleDetailsSchema },
-      { name: DriverPayout.name, schema: DriverPayoutSchema },
-      { name: DriverEarnings.name, schema: DriverEarningsSchema }
-    ])
   ],
   controllers: [DriverController],
-  providers: [DriverService, AuthGuards], // REMOVED: Duplicate DriverService
+  providers: [DriverService, AuthGuards],
   exports: [DriverService],
 })
-export class DriverModule { }
+export class DriverModule {}

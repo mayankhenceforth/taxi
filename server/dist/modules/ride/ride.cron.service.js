@@ -36,7 +36,7 @@ let RideCronService = RideCronService_1 = class RideCronService {
             this.logger.log(`Ride ${ride._id} has no driver after 30 seconds.`);
         }
         const ridesToTerminate = await this.tempRideModel.find({
-            createdAt: { $lte: new Date(now.getTime() - 3 * 60 * 1000) },
+            createdAt: { $lte: new Date(now.getTime() - 6 * 60 * 1000) },
         });
         for (const ride of ridesToTerminate) {
             this.logger.log(`Terminating ride ${ride._id} due to no driver response in 3 minutes.`);

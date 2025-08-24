@@ -30,7 +30,7 @@ let SmsService = class SmsService {
     async sendLoginOtpSms(otp) {
         return this.sendSms(`Dear user, your otp for login to your account is : ${otp}`);
     }
-    async sendVerificationOtpSms(otp) {
+    async sendVerificationOtpSms(contactNumber, otp) {
         return this.sendSms(`Dear user, your otp to verify your account is : ${otp}`);
     }
     async sendForgetPasswordOtpSms(otp) {

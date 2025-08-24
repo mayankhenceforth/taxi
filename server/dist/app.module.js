@@ -9,18 +9,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const schedule_1 = require("@nestjs/schedule");
 const comman_module_1 = require("./comman/comman.module");
-const db_1 = require("./comman/db/db");
+const db_module_1 = require("./comman/db/db.module");
+const guads_module_1 = require("./comman/guards/guads.module");
 const user_module_1 = require("./modules/user/user.module");
-const cloudinary_module_1 = require("./comman/cloudinary/cloudinary.module");
 const admin_module_1 = require("./modules/admin/admin.module");
 const driver_module_1 = require("./modules/driver/driver.module");
-const sms_module_1 = require("./comman/sms/sms.module");
-const guads_module_1 = require("./comman/guards/guads.module");
 const ride_module_1 = require("./modules/ride/ride.module");
-const schedule_1 = require("@nestjs/schedule");
+const cloudinary_module_1 = require("./comman/cloudinary/cloudinary.module");
+const sms_module_1 = require("./comman/sms/sms.module");
 const payment_module_1 = require("./comman/payment/payment.module");
 const invoice_module_1 = require("./comman/invoice/invoice.module");
+const db_1 = require("./comman/db/db");
+const mail_module_1 = require("./comman/mail/mail.module");
+const otp_module_1 = require("./comman/otp/otp.module");
+const token_module_1 = require("./comman/token/token.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -32,18 +36,22 @@ exports.AppModule = AppModule = __decorate([
                 envFilePath: '.env'
             }),
             schedule_1.ScheduleModule.forRoot(),
-            comman_module_1.CommonModule,
             (0, db_1.default)(),
+            db_module_1.DatabaseModule,
+            comman_module_1.CommonModule,
+            guads_module_1.GuardModule,
             user_module_1.UserModule,
-            cloudinary_module_1.CloudinaryModule,
-            ride_module_1.RideModule,
             admin_module_1.AdminModule,
             driver_module_1.DriverModule,
+            ride_module_1.RideModule,
+            cloudinary_module_1.CloudinaryModule,
             sms_module_1.SmsModule,
-            guads_module_1.GuardModule,
             payment_module_1.PaymentModule,
-            driver_module_1.DriverModule,
-            invoice_module_1.InvoiceModule
+            invoice_module_1.InvoiceModule,
+            mail_module_1.MailModule,
+            guads_module_1.GuardModule,
+            otp_module_1.otpModule,
+            token_module_1.TokenModule
         ],
     })
 ], AppModule);

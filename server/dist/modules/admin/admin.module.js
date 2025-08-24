@@ -8,35 +8,45 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminModule = void 0;
 const common_1 = require("@nestjs/common");
-const admin_service_1 = require("./admin.service");
 const admin_controller_1 = require("./admin.controller");
+const admin_service_1 = require("./admin.service");
 const jwt_1 = require("@nestjs/jwt");
-const mongoose_1 = require("@nestjs/mongoose");
-const ride_schema_1 = require("../../comman/schema/ride.schema");
-const user_schema_1 = require("../../comman/schema/user.schema");
+const config_1 = require("@nestjs/config");
 const cloudinary_module_1 = require("../../comman/cloudinary/cloudinary.module");
 const invoice_module_1 = require("../../comman/invoice/invoice.module");
-const invoice_service_1 = require("../../comman/invoice/invoice.service");
 const payment_module_1 = require("../../comman/payment/payment.module");
+const invoice_service_1 = require("../../comman/invoice/invoice.service");
 const payment_service_1 = require("../../comman/payment/payment.service");
+const html_template_service_1 = require("../../comman/invoice/html-template.service");
+const pdf_service_1 = require("../../comman/invoice/pdf.service");
+const geocoding_service_1 = require("../../comman/invoice/geocoding.service");
 let AdminModule = class AdminModule {
 };
 exports.AdminModule = AdminModule;
 exports.AdminModule = AdminModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            jwt_1.JwtModule.register({ secret: process.env.JWT_SECRET }),
-            mongoose_1.MongooseModule.forFeature([
-                { name: ride_schema_1.Ride.name, schema: ride_schema_1.RideSchema },
-                { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
-                { name: ride_schema_1.TemporaryRide.name, schema: ride_schema_1.TemporaryRideSchema }
-            ]),
+            config_1.ConfigModule,
+            jwt_1.JwtModule.registerAsync({
+                imports: [config_1.ConfigModule],
+                inject: [config_1.ConfigService],
+                useFactory: (config) => ({
+                    secret: config.get('JWT_SECRET'),
+                }),
+            }),
             cloudinary_module_1.CloudinaryModule,
             invoice_module_1.InvoiceModule,
             payment_module_1.PaymentModule
         ],
         controllers: [admin_controller_1.AdminController],
-        providers: [admin_service_1.AdminService, invoice_service_1.InvoiceService, payment_service_1.PaymentService],
+        providers: [
+            admin_service_1.AdminService,
+            invoice_service_1.InvoiceService,
+            payment_service_1.PaymentService,
+            html_template_service_1.HtmlTemplateService,
+            pdf_service_1.PdfGeneratorService,
+            geocoding_service_1.GeocodingService,
+        ],
     })
 ], AdminModule);
 //# sourceMappingURL=admin.module.js.map

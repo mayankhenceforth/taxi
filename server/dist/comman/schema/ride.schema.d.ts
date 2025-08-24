@@ -6,21 +6,6 @@ export declare class Ride {
     vehicleType: 'bike' | 'car';
     sentToRadius: number;
     distance: number;
-    baseFare: number;
-    gstAmount: number;
-    platformFee: number;
-    surgeMultiplier: number;
-    surgeCharge: number;
-    nightCharge: number;
-    tollFee: number;
-    parkingFee: number;
-    waitingCharge: number;
-    cancellationFee: number;
-    bonusAmount: number;
-    referralDiscount: number;
-    promoDiscount: number;
-    promoCode?: string;
-    subTotal: number;
     TotalFare: number;
     driverEarnings: number;
     platformEarnings: number;
@@ -55,13 +40,14 @@ export declare class Ride {
     };
     otp: number;
     cancelReason?: string;
-    cancelledBy?: 'User' | 'Driver';
+    cancelledBy?: 'User' | 'Driver' | 'System';
     invoiceUrl?: string;
     paymentIntentId?: string;
     checkoutSessionId?: string;
     completedAt?: Date;
     startedAt?: Date;
     acceptedAt?: Date;
+    arrivedAt?: Date;
     cancelledAt?: Date;
     terminatedAt?: Date;
     paidAt?: Date;
@@ -81,7 +67,30 @@ export declare const RideSchema: import("mongoose").Schema<Ride, import("mongoos
 export type TemporaryRideDocument = TemporaryRide & Document;
 export declare class TemporaryRide {
     bookedBy: Types.ObjectId;
+    driver?: Types.ObjectId;
     vehicleType: 'bike' | 'car';
+    sentToRadius: number;
+    distance: number;
+    TotalFare: number;
+    driverEarnings: number;
+    platformEarnings: number;
+    fareBreakdown: {
+        baseFare: number;
+        gstAmount: number;
+        platformFee: number;
+        surgeCharge: number;
+        nightCharge: number;
+        tollFee: number;
+        parkingFee: number;
+        waitingCharge: number;
+        bonusAmount: number;
+        referralDiscount: number;
+        promoDiscount: number;
+        subTotal: number;
+        totalFare: number;
+    };
+    status: string;
+    paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
     pickupLocation: {
         type: string;
         coordinates: number[];
@@ -90,13 +99,7 @@ export declare class TemporaryRide {
         type: string;
         coordinates: number[];
     };
-    distance: number;
-    baseFare: number;
-    estimatedGst: number;
-    estimatedPlatformFee: number;
-    surgeMultiplier: number;
-    fare: number;
-    status: string;
+    otp: number;
     eligibleDrivers: Types.ObjectId[];
     createdAt: Date;
 }

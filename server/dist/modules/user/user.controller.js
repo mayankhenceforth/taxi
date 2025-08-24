@@ -47,6 +47,10 @@ let UserController = class UserController {
 exports.UserController = UserController;
 __decorate([
     (0, common_1.Post)("sign-up"),
+    (0, swagger_1.ApiOperation)({ summary: 'Register a new user', description: 'Creates a new user account with the provided details.' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User successfully registered.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid input data.' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'User already exists.' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [sign_up_user_dto_1.SignUpDto]),
@@ -54,6 +58,10 @@ __decorate([
 ], UserController.prototype, "signUpUser", null);
 __decorate([
     (0, common_1.Post)('sendUserVerificationOtp'),
+    (0, swagger_1.ApiOperation)({ summary: 'Send OTP for user verification', description: 'Sends a one-time password (OTP) to the user for account verification.' }),
+    (0, swagger_1.ApiQuery)({ name: 'id', type: String, description: 'User ID (MongoDB ObjectId)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'OTP sent successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found.' }),
     __param(0, (0, common_1.Query)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -61,6 +69,11 @@ __decorate([
 ], UserController.prototype, "sendOtp", null);
 __decorate([
     (0, common_1.Post)('otpVerification'),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify user with OTP', description: 'Verifies the user account using the provided OTP.' }),
+    (0, swagger_1.ApiQuery)({ name: 'id', type: String, description: 'User ID (MongoDB ObjectId)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User verified successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid OTP.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found.' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Query)('id')),
     __metadata("design:type", Function),
@@ -69,6 +82,9 @@ __decorate([
 ], UserController.prototype, "otpVerification", null);
 __decorate([
     (0, common_1.Post)('login'),
+    (0, swagger_1.ApiOperation)({ summary: 'User login', description: 'Authenticates a user with their credentials.' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User logged in successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid credentials.' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [login_dto_1.LoginDto]),
@@ -78,6 +94,11 @@ __decorate([
     (0, common_1.Post)("upload-profile"),
     (0, common_1.UseInterceptors)((0, file_upload_interceptor_1.UploadInterceptor)()),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload user profile picture', description: 'Uploads a profile picture for the specified user.' }),
+    (0, swagger_1.ApiQuery)({ name: 'id', type: String, description: 'User ID (MongoDB ObjectId)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Profile picture uploaded successfully.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid file or user ID.' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found.' }),
     (0, swagger_1.ApiBody)({
         schema: {
             type: 'object',
@@ -97,6 +118,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], UserController.prototype, "uploadProfilePic", null);
 exports.UserController = UserController = __decorate([
+    (0, swagger_1.ApiTags)('User'),
     (0, common_1.Controller)('user'),
     __metadata("design:paramtypes", [user_service_1.UserService])
 ], UserController);

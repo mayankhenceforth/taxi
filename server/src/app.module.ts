@@ -1,19 +1,24 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+
 import { CommonModule } from './comman/comman.module';
-import ConfigureDB from './comman/db/db';
+import { DatabaseModule } from './comman/db/db.module';
+import { GuardModule } from './comman/guards/guads.module';
+
 import { UserModule } from './modules/user/user.module';
-import { CloudinaryModule } from './comman/cloudinary/cloudinary.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { DriverModule } from './modules/driver/driver.module';
-import { SmsModule } from './comman/sms/sms.module';
-import { AuthGuards } from './comman/guards/auth.guards';
-import { RoleGuards } from './comman/guards/role.guards';
-import { GuardModule } from './comman/guards/guads.module';
 import { RideModule } from './modules/ride/ride.module';
-import { ScheduleModule } from '@nestjs/schedule';
+
+import { CloudinaryModule } from './comman/cloudinary/cloudinary.module';
+import { SmsModule } from './comman/sms/sms.module';
 import { PaymentModule } from './comman/payment/payment.module';
 import { InvoiceModule } from './comman/invoice/invoice.module';
+import ConfigureDB from './comman/db/db';
+import { MailModule } from './comman/mail/mail.module';
+import { otpModule } from './comman/otp/otp.module';
+import { TokenModule } from './comman/token/token.module';
 
 @Module({
   imports: [
@@ -22,23 +27,27 @@ import { InvoiceModule } from './comman/invoice/invoice.module';
       envFilePath: '.env'
     }),
     ScheduleModule.forRoot(),
-    CommonModule,
     ConfigureDB(),
+    DatabaseModule, // globally shared schemas
+    CommonModule,
+    GuardModule,
+
+    // Feature Modules
     UserModule,
-    CloudinaryModule,
-    RideModule,
     AdminModule,
     DriverModule,
+    RideModule,
+
+    // Common Functional Modules
+    CloudinaryModule,
     SmsModule,
-   GuardModule,
-   PaymentModule,
-   DriverModule,
-   InvoiceModule
-  
+    PaymentModule,
+    InvoiceModule,
+    MailModule,
+    GuardModule,
+    otpModule,
+    TokenModule
   ],
-
 })
-export class AppModule { }
-
-
+export class AppModule {}
 

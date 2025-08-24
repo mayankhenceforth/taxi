@@ -32,7 +32,7 @@ export class RideCronService {
       );
     }
     const ridesToTerminate = await this.tempRideModel.find({
-      createdAt: { $lte: new Date(now.getTime() - 3 * 60 * 1000) }, // 3 minutes
+      createdAt: { $lte: new Date(now.getTime() - 6 * 60 * 1000) }, // 3 minutes
     });
 
     for (const ride of ridesToTerminate) {

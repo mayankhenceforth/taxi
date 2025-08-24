@@ -23,54 +23,6 @@ export class Ride {
   @Prop({ type: Number, required: true })
   distance: number;
 
-  // Base fare calculation
-  @Prop({ type: Number, required: true })
-  baseFare: number;
-
-  // Additional charges
-  @Prop({ type: Number, default: 0 })
-  gstAmount: number;
-
-  @Prop({ type: Number, default: 0 })
-  platformFee: number;
-
-  @Prop({ type: Number, default: 0 })
-  surgeMultiplier: number;
-
-  @Prop({ type: Number, default: 0 })
-  surgeCharge: number;
-
-  @Prop({ type: Number, default: 0 })
-  nightCharge: number;
-
-  @Prop({ type: Number, default: 0 })
-  tollFee: number;
-
-  @Prop({ type: Number, default: 0 })
-  parkingFee: number;
-
-  @Prop({ type: Number, default: 0 })
-  waitingCharge: number;
-
-  @Prop({ type: Number, default: 0 })
-  cancellationFee: number;
-
-  @Prop({ type: Number, default: 0 })
-  bonusAmount: number;
-
-  @Prop({ type: Number, default: 0 })
-  referralDiscount: number;
-
-  @Prop({ type: Number, default: 0 })
-  promoDiscount: number;
-
-  @Prop({ type: String })
-  promoCode?: string;
-
-  // Total calculations
-  @Prop({ type: Number, required: true })
-  subTotal: number;
-
   @Prop({ type: Number, required: true })
   TotalFare: number;
 
@@ -80,7 +32,6 @@ export class Ride {
   @Prop({ type: Number, required: true })
   platformEarnings: number;
 
-  // Payment breakdown
   @Prop({ type: {
     baseFare: Number,
     gstAmount: Number,
@@ -112,7 +63,7 @@ export class Ride {
     totalFare: number;
   };
 
-  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
+  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
   status: string;
 
   @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
@@ -142,8 +93,8 @@ export class Ride {
   @Prop({ required: false })
   cancelReason?: string;
 
-  @Prop({ required: false, enum: ['User', 'Driver'] })
-  cancelledBy?: 'User' | 'Driver';
+  @Prop({ required: false, enum: ['User', 'Driver', 'System'] })
+  cancelledBy?: 'User' | 'Driver' | 'System';
 
   @Prop({ required: false })
   invoiceUrl?: string;
@@ -154,10 +105,10 @@ export class Ride {
   @Prop({ required: false })
   checkoutSessionId?: string;
 
-  // Timestamps
   @Prop({ type: Date }) completedAt?: Date;
   @Prop({ type: Date }) startedAt?: Date;
   @Prop({ type: Date }) acceptedAt?: Date;
+  @Prop({ type: Date }) arrivedAt?: Date;
   @Prop({ type: Date }) cancelledAt?: Date;
   @Prop({ type: Date }) terminatedAt?: Date;
   @Prop({ type: Date }) paidAt?: Date;
@@ -179,8 +130,63 @@ export class TemporaryRide {
   @Prop({ required: true, type: Types.ObjectId, ref: User.name })
   bookedBy: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: User.name })
+  driver?: Types.ObjectId;
+
   @Prop({ type: String, enum: ['bike', 'car'], required: true })
   vehicleType: 'bike' | 'car';
+
+  @Prop({ type: Number, required: true, default: 5 })
+  sentToRadius: number;
+
+  @Prop({ type: Number, required: true })
+  distance: number;
+
+  @Prop({ type: Number, required: true })
+  TotalFare: number;
+
+  @Prop({ type: Number, required: true })
+  driverEarnings: number;
+
+  @Prop({ type: Number, required: true })
+  platformEarnings: number;
+
+  @Prop({ type: {
+    baseFare: Number,
+    gstAmount: Number,
+    platformFee: Number,
+    surgeCharge: Number,
+    nightCharge: Number,
+    tollFee: Number,
+    parkingFee: Number,
+    waitingCharge: Number,
+    bonusAmount: Number,
+    referralDiscount: Number,
+    promoDiscount: Number,
+    subTotal: Number,
+    totalFare: Number
+  }, default: {} })
+  fareBreakdown: {
+    baseFare: number;
+    gstAmount: number;
+    platformFee: number;
+    surgeCharge: number;
+    nightCharge: number;
+    tollFee: number;
+    parkingFee: number;
+    waitingCharge: number;
+    bonusAmount: number;
+    referralDiscount: number;
+    promoDiscount: number;
+    subTotal: number;
+    totalFare: number;
+  };
+
+  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
+  status: string;
+
+  @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   pickupLocation: { type: string; coordinates: number[] };
@@ -188,33 +194,16 @@ export class TemporaryRide {
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   dropoffLocation: { type: string; coordinates: number[] };
 
-  @Prop({ required: true, type: Number })
-  distance: number;
-
-  // Temporary ride fare details
-  @Prop({ type: Number, required: true })
-  baseFare: number;
-
-  @Prop({ type: Number, default: 0 })
-  estimatedGst: number;
-
-  @Prop({ type: Number, default: 0 })
-  estimatedPlatformFee: number;
-
-  @Prop({ type: Number, default: 1 })
-  surgeMultiplier: number;
-
-  @Prop({ type: Number, required: true })
-  fare: number;
-
-  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
-  status: string;
+  @Prop({ required: false })
+  otp: number;
 
   @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
   eligibleDrivers: Types.ObjectId[];
 
-  @Prop({ default: Date.now, index: { expires: 86400 } })
+  @Prop({ default: Date.now, index: { expires: 900 } })
   createdAt: Date;
 }
 
 export const TemporaryRideSchema = SchemaFactory.createForClass(TemporaryRide);
+TemporaryRideSchema.index({ pickupLocation: '2dsphere' });
+TemporaryRideSchema.index({ dropoffLocation: '2dsphere' });
