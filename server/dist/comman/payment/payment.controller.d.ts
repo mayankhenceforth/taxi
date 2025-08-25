@@ -10,7 +10,7 @@ export declare class PaymentController {
     private totalAmount;
     private rideId;
     constructor(paymentService: PaymentService, rideModel: Model<RideDocument>);
-    handleCreatePaymentSession(amount?: number, rideId?: string): Promise<string | null>;
+    handleCreatePaymentSession(amount?: number, rideId?: string): Promise<string>;
     handlePaymentSuccess(): string;
     handlePaymentCancel(): string;
     handleWebhook(req: Request, sig: string): Promise<{

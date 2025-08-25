@@ -32,11 +32,17 @@ const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service
 const driver_service_1 = require("../driver/driver.service");
 const mail_service_1 = require("../../comman/mail/mail.service");
 const rating_schma_1 = require("../../comman/schema/rating.schma");
+const DriverPaymentInfo_schema_1 = require("../../comman/schema/DriverPaymentInfo.schema");
+const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
+const payment_schema_1 = require("../../comman/schema/payment.schema");
 let RideService = RideService_1 = class RideService {
     rideModel;
     TemporyRideModel;
     userModel;
     rideRatingModel;
+    driverPaymentModel;
+    driverEarningModel;
+    paymentModel;
     rideGateway;
     paymentService;
     invoiceService;
@@ -46,11 +52,14 @@ let RideService = RideService_1 = class RideService {
     logger = new common_2.Logger(RideService_1.name);
     rideTimers = new Map();
     twilioClient;
-    constructor(rideModel, TemporyRideModel, userModel, rideRatingModel, rideGateway, paymentService, invoiceService, cloudinaryService, driverService, mailService) {
+    constructor(rideModel, TemporyRideModel, userModel, rideRatingModel, driverPaymentModel, driverEarningModel, paymentModel, rideGateway, paymentService, invoiceService, cloudinaryService, driverService, mailService) {
         this.rideModel = rideModel;
         this.TemporyRideModel = TemporyRideModel;
         this.userModel = userModel;
         this.rideRatingModel = rideRatingModel;
+        this.driverPaymentModel = driverPaymentModel;
+        this.driverEarningModel = driverEarningModel;
+        this.paymentModel = paymentModel;
         this.rideGateway = rideGateway;
         this.paymentService = paymentService;
         this.invoiceService = invoiceService;
@@ -171,12 +180,7 @@ let RideService = RideService_1 = class RideService {
         const excessDistanceRate = parseFloat(process.env.EXCESS_DISTANCE_RATE ?? '3');
         let baseFare = 0;
         const baseRate = baseRates[vehicleType.toLowerCase()];
-        if (distance > 20) {
-            baseFare = 20 * baseRate + (distance - 20) * (baseRate + excessDistanceRate);
-        }
-        else {
-            baseFare = distance * baseRate;
-        }
+        baseFare = distance * baseRate;
         const surgeCharge = baseFare * (surgeMultiplier - 1);
         const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
         const waitingCharge = waitingTime * waitingChargePerMin;
@@ -239,6 +243,14 @@ let RideService = RideService_1 = class RideService {
                 totalFare: Math.round(totalFare),
             },
         };
+    }
+    async updateDriverRating(driverId) {
+        const ratings = await this.rideRatingModel.find({ driver: driverId });
+        console.log("ratings", ratings);
+        if (ratings.length > 0) {
+            const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
+            await this.userModel.updateOne({ _id: driverId }, { $set: { rating: Number(averageRating.toFixed(1)) } });
+        }
     }
     async createRide(request, createRideDto) {
         const { dropoffLocationCoordinates, pickupLocationCoordinates, vehicleType } = createRideDto;
@@ -474,23 +486,26 @@ let RideService = RideService_1 = class RideService {
         const user = request.user;
         if (!user || user._id.toString() !== ride.bookedBy._id.toString())
             throw new common_1.UnauthorizedException('Not authorized');
-        if (ride.status !== 'started')
-            throw new common_1.BadRequestException('Ride is not in a state to pay for');
         if (ride.paymentStatus === 'paid')
             throw new common_1.BadRequestException('Ride already paid');
         const totalAmount = ride.TotalFare;
         const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
         const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
-        const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount * 100, rideId);
+        const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, rideId, totalAmount * 100);
         return new api_response_1.default(true, 'Checkout session created', common_1.HttpStatus.OK, { url: session });
     }
     async confirmPayment(rideId) {
         const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
         if (!ride)
             throw new common_1.NotFoundException('Ride not found');
+        const payment = await this.paymentModel.findOne({ rideId });
+        if (!payment)
+            throw new common_1.NotFoundException('Payment document not found');
         ride.paymentStatus = 'paid';
         ride.paidAt = new Date();
         await ride.save();
+        payment.status = 'paid';
+        await payment.save();
         const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
         if (!pdfBuffer)
             throw new common_1.BadRequestException('Failed to generate invoice');
@@ -531,32 +546,31 @@ let RideService = RideService_1 = class RideService {
         return pdfBuffer;
     }
     async rideComplete(rideId, request) {
-        if (!mongoose_1.Types.ObjectId.isValid(rideId))
+        if (!mongoose_1.Types.ObjectId.isValid(rideId)) {
             throw new common_1.BadRequestException('Invalid rideId');
+        }
         const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
         if (!ride)
             throw new common_1.NotFoundException('Ride not found');
         const user = request.user;
-        if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
+        if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString()) {
             throw new common_1.UnauthorizedException('Not authorized');
-        if (ride.paymentStatus !== 'paid')
+        }
+        if (ride.paymentStatus !== 'paid') {
             throw new common_1.BadRequestException('Ride not complete, payment not completed');
-        if (ride.status === 'cancelled')
+        }
+        if (ride.status === 'cancelled') {
             throw new common_1.BadRequestException('Ride cannot be completed as it was cancelled');
-        const session = await this.rideModel.db.startSession();
-        session.startTransaction();
+        }
         try {
             ride.status = 'completed';
             ride.completedAt = new Date();
-            await ride.save({ session });
-            const driverEarnings = await this.driverService.updateDriverEarnings(ride._id, ride.driver._id, ride.TotalFare * 0.8);
-            await session.commitTransaction();
-            session.endSession();
-            let pdfBuffer;
+            await ride.save();
             try {
-                pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-                if (!pdfBuffer || !(pdfBuffer instanceof Buffer))
+                const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+                if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
                     throw new common_1.BadRequestException('PDF buffer not created');
+                }
                 const email = 'mayank8355@gmail.com';
                 const subject = 'Ride Completed - Your Invoice';
                 await this.mailService.sendPdf({ email, subject, pdfBuffer });
@@ -569,6 +583,15 @@ let RideService = RideService_1 = class RideService {
                     message: 'Failed to send invoice email. Please contact support.',
                 });
             }
+            const paymentId = ride.paymentId ? ride.paymentId : new mongoose_1.Types.ObjectId();
+            await this.driverService.recordDriverEarning(String(ride._id), ride.driver._id, ride.bookedBy._id, paymentId, ride.driverEarnings);
+            const driverPayment = await this.driverPaymentModel.findOneAndUpdate({ driverId: ride.driver._id }, {
+                $inc: {
+                    totalEarnings: ride.driverEarnings,
+                    balance: ride.driverEarnings,
+                },
+            }, { new: true, upsert: true });
+            this.logger.log(`Driver payment updated: ${JSON.stringify(driverPayment)}`);
             this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
                 rideId: ride._id,
                 message: 'Ride completed successfully',
@@ -577,17 +600,12 @@ let RideService = RideService_1 = class RideService {
                 this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
                     rideId: ride._id,
                     message: 'Ride completed successfully',
-                    earnings: ride.TotalFare * 0.8,
+                    earnings: ride.driverEarnings,
                 });
             }
-            return new api_response_1.default(true, 'Ride completed successfully!', common_1.HttpStatus.OK, {
-                ride,
-                earnings: driverEarnings,
-            });
+            return new api_response_1.default(true, 'Ride completed successfully!', common_1.HttpStatus.OK, { ride });
         }
         catch (error) {
-            await session.abortTransaction();
-            session.endSession();
             throw new common_1.InternalServerErrorException('Failed to complete ride: ' + error.message);
         }
     }
@@ -598,7 +616,6 @@ let RideService = RideService_1 = class RideService {
         const ride = await this.rideModel
             .findById(rideId)
             .populate('bookedBy driver');
-        console.log("ride info", ride);
         if (!ride) {
             throw new common_1.NotFoundException('Ride not found');
         }
@@ -608,6 +625,9 @@ let RideService = RideService_1 = class RideService {
         const user = request.user;
         if (!user || !ride.bookedBy || user._id.toString() !== ride.bookedBy._id.toString()) {
             throw new common_1.UnauthorizedException('Only the passenger who booked the ride can rate it');
+        }
+        if (!ride.driver) {
+            throw new common_1.BadRequestException("Driver Information not present....");
         }
         if (ratingDto.rating < 1 || ratingDto.rating > 5) {
             throw new common_1.BadRequestException('Rating must be between 1 and 5');
@@ -627,16 +647,11 @@ let RideService = RideService_1 = class RideService {
             message: ratingDto.message,
         });
         await newRating.save();
+        await this.rideModel.findByIdAndUpdate(rideId, { ratingId: newRating._id });
+        await this.updateDriverRating(ride.driver._id);
         return new api_response_1.default(true, 'Ride rated successfully!', common_1.HttpStatus.OK, {
             rating: newRating,
         });
-    }
-    async updateDriverRating(driverId) {
-        const ratings = await this.rideRatingModel.find({ driver: driverId });
-        if (ratings.length > 0) {
-            const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
-            await this.userModel.updateOne({ _id: driverId }, { $set: { rating: Number(averageRating.toFixed(1)) } });
-        }
     }
 };
 exports.RideService = RideService;
@@ -646,7 +661,13 @@ exports.RideService = RideService = RideService_1 = __decorate([
     __param(1, (0, mongoose_2.InjectModel)(ride_schema_1.TemporaryRide.name)),
     __param(2, (0, mongoose_2.InjectModel)(user_schema_1.User.name)),
     __param(3, (0, mongoose_2.InjectModel)(rating_schma_1.RideRating.name)),
+    __param(4, (0, mongoose_2.InjectModel)(DriverPaymentInfo_schema_1.DriverPayment.name)),
+    __param(5, (0, mongoose_2.InjectModel)(driver_earnings_schema_1.DriverEarning.name)),
+    __param(6, (0, mongoose_2.InjectModel)(payment_schema_1.Payment.name)),
     __metadata("design:paramtypes", [mongoose_1.Model,
+        mongoose_1.Model,
+        mongoose_1.Model,
+        mongoose_1.Model,
         mongoose_1.Model,
         mongoose_1.Model,
         mongoose_1.Model,

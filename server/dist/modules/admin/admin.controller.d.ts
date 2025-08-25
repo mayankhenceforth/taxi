@@ -40,6 +40,9 @@ export declare class AdminController {
     getNewRides(filter: string, res: Response): Promise<Response<any, Record<string, any>>>;
     processRefund(rideId: string): Promise<import("../../comman/helpers/api-response").default<{
         rideId: unknown;
-        refundStatus: "processed";
+        refundStatus: "refunded" | "partially_refunded";
+        refundAmount: number;
+        refundPercentage: number;
+        paymentId: unknown;
     }>>;
 }

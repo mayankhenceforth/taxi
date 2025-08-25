@@ -13,6 +13,7 @@ exports.TemporaryRideSchema = exports.TemporaryRide = exports.RideSchema = expor
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const user_schema_1 = require("./user.schema");
+const payment_schema_1 = require("./payment.schema");
 let Ride = class Ride {
     bookedBy;
     driver;
@@ -25,18 +26,14 @@ let Ride = class Ride {
     fareBreakdown;
     status;
     paymentStatus;
-    refundStatus;
-    refundAmount;
-    refundPercentage;
-    refundReason;
+    paymentId;
     pickupLocation;
     dropoffLocation;
     otp;
     cancelReason;
     cancelledBy;
     invoiceUrl;
-    paymentIntentId;
-    checkoutSessionId;
+    ratingId;
     completedAt;
     startedAt;
     acceptedAt;
@@ -82,7 +79,8 @@ __decorate([
     __metadata("design:type", Number)
 ], Ride.prototype, "platformEarnings", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: {
+    (0, mongoose_1.Prop)({
+        type: {
             baseFare: Number,
             gstAmount: Number,
             platformFee: Number,
@@ -96,33 +94,32 @@ __decorate([
             promoDiscount: Number,
             subTotal: Number,
             totalFare: Number
-        }, default: {} }),
+        },
+        default: {}
+    }),
     __metadata("design:type", Object)
 ], Ride.prototype, "fareBreakdown", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        type: String,
+        enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
+        default: 'processing'
+    }),
     __metadata("design:type", String)
 ], Ride.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        enum: ['unpaid', 'paid', 'refunded', 'partially_refunded', "pending"],
+        default: 'pending'
+    }),
     __metadata("design:type", String)
 ], Ride.prototype, "paymentStatus", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' }),
-    __metadata("design:type", String)
-], Ride.prototype, "refundStatus", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ type: Number, default: 0 }),
-    __metadata("design:type", Number)
-], Ride.prototype, "refundAmount", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ type: Number, default: 0 }),
-    __metadata("design:type", Number)
-], Ride.prototype, "refundPercentage", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ type: String, required: false }),
-    __metadata("design:type", String)
-], Ride.prototype, "refundReason", void 0);
+    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Payment' }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Ride.prototype, "paymentId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } }),
     __metadata("design:type", Object)
@@ -132,29 +129,25 @@ __decorate([
     __metadata("design:type", Object)
 ], Ride.prototype, "dropoffLocation", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", Number)
 ], Ride.prototype, "otp", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], Ride.prototype, "cancelReason", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false, enum: ['User', 'Driver', 'System'] }),
+    (0, mongoose_1.Prop)({ enum: ['User', 'Driver', 'System'] }),
     __metadata("design:type", String)
 ], Ride.prototype, "cancelledBy", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", String)
 ], Ride.prototype, "invoiceUrl", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false }),
-    __metadata("design:type", String)
-], Ride.prototype, "paymentIntentId", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ required: false }),
-    __metadata("design:type", String)
-], Ride.prototype, "checkoutSessionId", void 0);
+    (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'RideRating' }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], Ride.prototype, "ratingId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: Date }),
     __metadata("design:type", Date)
@@ -215,6 +208,7 @@ let TemporaryRide = class TemporaryRide {
     fareBreakdown;
     status;
     paymentStatus;
+    paymentId;
     pickupLocation;
     dropoffLocation;
     otp;
@@ -255,7 +249,8 @@ __decorate([
     __metadata("design:type", Number)
 ], TemporaryRide.prototype, "platformEarnings", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: {
+    (0, mongoose_1.Prop)({
+        type: {
             baseFare: Number,
             gstAmount: Number,
             platformFee: Number,
@@ -269,17 +264,32 @@ __decorate([
             promoDiscount: Number,
             subTotal: Number,
             totalFare: Number
-        }, default: {} }),
+        },
+        default: {}
+    }),
     __metadata("design:type", Object)
 ], TemporaryRide.prototype, "fareBreakdown", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        type: String,
+        enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
+        default: 'processing'
+    }),
     __metadata("design:type", String)
 ], TemporaryRide.prototype, "status", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' }),
+    (0, mongoose_1.Prop)({
+        required: true,
+        enum: ['unpaid', 'paid', 'refunded', 'partially_refunded'],
+        default: 'unpaid'
+    }),
     __metadata("design:type", String)
 ], TemporaryRide.prototype, "paymentStatus", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: payment_schema_1.Payment.name }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], TemporaryRide.prototype, "paymentId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } }),
     __metadata("design:type", Object)
@@ -289,7 +299,7 @@ __decorate([
     __metadata("design:type", Object)
 ], TemporaryRide.prototype, "dropoffLocation", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false }),
+    (0, mongoose_1.Prop)(),
     __metadata("design:type", Number)
 ], TemporaryRide.prototype, "otp", void 0);
 __decorate([

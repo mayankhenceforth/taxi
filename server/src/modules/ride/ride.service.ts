@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Ride, RideDocument, TemporaryRide, TemporaryRideDocument } from '../../comman/schema/ride.schema';
-import { Model, Types } from 'mongoose';
+import mongoose, { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Logger } from '@nestjs/common';
 import ApiResponse from 'src/comman/helpers/api-response';
@@ -29,6 +29,9 @@ import { MailService } from 'src/comman/mail/mail.service';
 import { RideRatingDto } from './dto/rating.dto';
 import { RideRating, RideRatingDocument } from 'src/comman/schema/rating.schma';
 import { log } from 'console';
+import { DriverPayment, DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
+import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
+import { Payment, PaymentDocument } from 'src/comman/schema/payment.schema';
 
 @Injectable()
 export class RideService {
@@ -41,6 +44,9 @@ export class RideService {
     @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(RideRating.name) private readonly rideRatingModel: Model<RideRatingDocument>,
+    @InjectModel(DriverPayment.name) private readonly driverPaymentModel: Model<DriverPaymentDocument>,
+    @InjectModel(DriverEarning.name) private readonly driverEarningModel: Model<DriverEarningDocument>,
+      @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
@@ -66,14 +72,14 @@ export class RideService {
     const a =
       Math.sin(dLat / 2) ** 2 +
       Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
 
     return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   private async getNearbyDrivers(coordinates: [number, number], radius: number, vehicleType: string) {
-    console.log("location",coordinates)
+    console.log("location", coordinates)
     const drivers = await this.userModel.aggregate([
       {
         $geoNear: {
@@ -202,11 +208,9 @@ export class RideService {
     let baseFare = 0;
     const baseRate = baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
 
-    if (distance > 20) {
-      baseFare = 20 * baseRate + (distance - 20) * (baseRate + excessDistanceRate);
-    } else {
-      baseFare = distance * baseRate;
-    }
+
+    baseFare = distance * baseRate;
+
 
     const surgeCharge = baseFare * (surgeMultiplier - 1);
     const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
@@ -276,6 +280,19 @@ export class RideService {
         totalFare: Math.round(totalFare),
       },
     };
+  }
+
+  private async updateDriverRating(driverId: Types.ObjectId): Promise<void> {
+    const ratings = await this.rideRatingModel.find({ driver: driverId });
+    console.log("ratings", ratings)
+    if (ratings.length > 0) {
+      const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
+
+      await this.userModel.updateOne(
+        { _id: driverId },
+        { $set: { rating: Number(averageRating.toFixed(1)) } }
+      );
+    }
   }
 
   /** --- Ride Methods --- */
@@ -499,13 +516,12 @@ export class RideService {
     const ride = await this.rideModel.findById(rideId);
     if (!ride) throw new NotFoundException('Ride not found');
 
+
     if (role === Role.Driver && ride.driver?.toString() !== user._id.toString())
       throw new UnauthorizedException('You are not the assigned driver for this ride');
 
     if (!ride.otp) throw new BadRequestException('No OTP found for this ride');
     if (ride.otp !== verifyRideOtpDto.otp) throw new BadRequestException('Invalid OTP');
-
-    // Calculate waiting fee if ride has been in 'arrived' status for too long
     if (ride.status === 'arrived' && ride.arrivedAt) {
       const waitingTimeMinutes = (Date.now() - new Date(ride.arrivedAt).getTime()) / (1000 * 60);
       if (waitingTimeMinutes > 5) {
@@ -525,7 +541,7 @@ export class RideService {
         ride.driverEarnings = fareDetails.driverEarnings;
         ride.platformEarnings = fareDetails.platformEarnings;
 
-        
+
       }
     }
 
@@ -581,7 +597,7 @@ export class RideService {
     if (!user || user._id.toString() !== ride.bookedBy._id.toString())
       throw new UnauthorizedException('Not authorized');
 
-    if (ride.status !== 'started') throw new BadRequestException('Ride is not in a state to pay for');
+    // if (ride.status !== 'started') throw new BadRequestException('Ride is not in a state to pay for');
     if (ride.paymentStatus === 'paid') throw new BadRequestException('Ride already paid');
 
     const totalAmount = ride.TotalFare;
@@ -589,206 +605,216 @@ export class RideService {
     const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
     const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
 
-    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount * 100, rideId);
+    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, rideId,totalAmount * 100);
 
     return new ApiResponse(true, 'Checkout session created', HttpStatus.OK, { url: session });
   }
 
   async confirmPayment(rideId: string): Promise<Buffer> {
-    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-    if (!ride) throw new NotFoundException('Ride not found');
+  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+  if (!ride) throw new NotFoundException('Ride not found');
 
-    ride.paymentStatus = 'paid';
-    ride.paidAt = new Date();
-    await ride.save();
+  // Update Payment document
+  const payment = await this.paymentModel.findOne({ rideId });
+  if (!payment) throw new NotFoundException('Payment document not found');
 
-    const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-    if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
+  ride.paymentStatus = 'paid';
+  ride.paidAt = new Date();
+  await ride.save();
 
-    if (ride.invoiceUrl) {
-      const oldPublicId = ride.invoiceUrl.split('/upload/')[1]?.replace(/\.[^/.]+$/, '');
-      await this.cloudinaryService.deleteFile(oldPublicId).catch((error) => {
-        this.logger.error(`Failed to delete old invoice from Cloudinary: ${error.message}`);
-      });
-    }
+  payment.status = 'paid';
+  await payment.save();
 
-    const uploadResult = await this.cloudinaryService.uploadFile({
-      buffer: pdfBuffer,
-      originalname: `invoice-${rideId}.pdf`,
+  const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+  if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
+
+  if (ride.invoiceUrl) {
+    const oldPublicId = ride.invoiceUrl.split('/upload/')[1]?.replace(/\.[^/.]+$/, '');
+    await this.cloudinaryService.deleteFile(oldPublicId).catch((error) => {
+      this.logger.error(`Failed to delete old invoice from Cloudinary: ${error.message}`);
     });
+  }
 
-    if (!uploadResult) throw new BadRequestException('Failed to upload invoice to cloud');
+  const uploadResult = await this.cloudinaryService.uploadFile({
+    buffer: pdfBuffer,
+    originalname: `invoice-${rideId}.pdf`,
+  });
 
-    const baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
-    ride.invoiceUrl = baseUrl;
-    await ride.save();
+  if (!uploadResult) throw new BadRequestException('Failed to upload invoice to cloud');
 
-    this.logger.log(`Invoice uploaded to Cloudinary: ${baseUrl}`);
+  const baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
+  ride.invoiceUrl = baseUrl;
+  await ride.save();
 
-    this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+  this.logger.log(`Invoice uploaded to Cloudinary: ${baseUrl}`);
+
+  this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+    rideId: ride._id,
+    message: 'Payment confirmed successfully',
+    invoiceUrl: baseUrl,
+  });
+
+  // Send invoice email
+  try {
+    const email = 'mayank8355@gmail.com'; // Use bookedBy email
+    const subject = 'Ride Payment Confirmed - Your Invoice';
+    await this.mailService.sendPdf({ email, subject, pdfBuffer });
+    this.logger.log(`Invoice email sent successfully to ${email}`);
+  } catch (error) {
+    this.logger.error(`Failed to send invoice email: ${error.message}`);
+    this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
       rideId: ride._id,
-      message: 'Payment confirmed successfully',
-      invoiceUrl: baseUrl,
+      message: 'Failed to send invoice email. Please contact support.',
     });
+  }
 
-    // Send invoice email
+  return pdfBuffer;
+}
+
+ async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
+  if (!Types.ObjectId.isValid(rideId)) {
+    throw new BadRequestException('Invalid rideId');
+  }
+
+  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+  if (!ride) throw new NotFoundException('Ride not found');
+
+  const user = request.user;
+  if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString()) {
+    throw new UnauthorizedException('Not authorized');
+  }
+
+  if (ride.paymentStatus !== 'paid') {
+    throw new BadRequestException('Ride not complete, payment not completed');
+  }
+  if (ride.status === 'cancelled') {
+    throw new BadRequestException('Ride cannot be completed as it was cancelled');
+  }
+
+  try {
+
+    ride.status = 'completed';
+    ride.completedAt = new Date();
+    await ride.save();
+
     try {
-      const email = 'mayank8355@gmail.com'; // Fallback email
-      const subject = 'Ride Payment Confirmed - Your Invoice';
+      const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+      if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
+        throw new BadRequestException('PDF buffer not created');
+      }
+
+      const email = 'mayank8355@gmail.com';
+      const subject = 'Ride Completed - Your Invoice';
       await this.mailService.sendPdf({ email, subject, pdfBuffer });
+
       this.logger.log(`Invoice email sent successfully to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to send invoice email: ${error.message}`);
+      this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
       this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
         rideId: ride._id,
         message: 'Failed to send invoice email. Please contact support.',
       });
     }
 
-    return pdfBuffer;
-  }
+    const paymentId = ride.paymentId ? ride.paymentId : new Types.ObjectId();
+    await this.driverService.recordDriverEarning(
+      String(ride._id),
+      ride.driver._id,
+      ride.bookedBy._id,
+      paymentId,
+      ride.driverEarnings
+    );
 
-  async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
-    if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid rideId');
+    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+      { driverId: ride.driver._id },
+      {
+        $inc: {
+          totalEarnings: ride.driverEarnings,
+          balance: ride.driverEarnings,
+        },
+      },
+      { new: true, upsert: true } 
+    );
 
-    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-    if (!ride) throw new NotFoundException('Ride not found');
+    this.logger.log(`Driver payment updated: ${JSON.stringify(driverPayment)}`);
 
-    const user = request.user;
-    if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString())
-      throw new UnauthorizedException('Not authorized');
 
-    if (ride.paymentStatus !== 'paid') throw new BadRequestException('Ride not complete, payment not completed');
-    if (ride.status === 'cancelled') throw new BadRequestException('Ride cannot be completed as it was cancelled');
+    this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+      rideId: ride._id,
+      message: 'Ride completed successfully',
+    });
 
-   
-
-    try {
-      ride.status = 'completed';
-      ride.completedAt = new Date();
-      await ride.save();
-
-      const driverEarnings = await this.driverService.updateDriverEarnings(
-        ride._id as Types.ObjectId,
-        ride.driver._id as Types.ObjectId,
-        ride.TotalFare * 0.8,
-      );
-
-      let pdfBuffer: Buffer;
-      try {
-        pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-        if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) throw new BadRequestException('PDF buffer not created');
-
-        const email = 'mayank8355@gmail.com'; // Fallback email
-        const subject = 'Ride Completed - Your Invoice';
-
-        await this.mailService.sendPdf({ email, subject, pdfBuffer });
-        this.logger.log(`Invoice email sent successfully to ${email}`);
-      } catch (error) {
-        this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
-        this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
-          rideId: ride._id,
-          message: 'Failed to send invoice email. Please contact support.',
-        });
-      }
-
-      this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+  
+    if (ride.driver) {
+      this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
         rideId: ride._id,
         message: 'Ride completed successfully',
+        earnings: ride.driverEarnings,
       });
-
-      if (ride.driver) {
-        this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
-          rideId: ride._id,
-          message: 'Ride completed successfully',
-          earnings: ride.TotalFare * 0.8,
-        });
-      }
-
-      return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, {
-        ride,
-        earnings: driverEarnings,
-      });
-    } catch (error) {
-      
-      throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
     }
+
+    return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, { ride });
+  } catch (error) {
+    throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
   }
+}
 
-async rideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<ApiResponse<any>> {
-    // Validate rideId
+  async rideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<ApiResponse<any>> {
+
     if (!Types.ObjectId.isValid(rideId)) {
-        throw new BadRequestException('Invalid rideId');
+      throw new BadRequestException('Invalid rideId');
     }
-
-    // Find ride with populated references
     const ride = await this.rideModel
-        .findById(rideId)
-        .populate('bookedBy driver');
+      .findById(rideId)
+      .populate('bookedBy driver');
 
-        console.log("ride info",ride)
-    
     if (!ride) {
-        throw new NotFoundException('Ride not found');
+      throw new NotFoundException('Ride not found');
     }
 
-    if(ride.status !== "completed"){
+    if (ride.status !== "completed") {
       throw new BadRequestException("Oops:Ride not complete")
     }
 
-    // Validate user authorization
+
     const user = request.user;
     if (!user || !ride.bookedBy || user._id.toString() !== ride.bookedBy._id.toString()) {
-        throw new UnauthorizedException('Only the passenger who booked the ride can rate it');
+      throw new UnauthorizedException('Only the passenger who booked the ride can rate it');
     }
 
-
-    // Validate rating value
+    if (!ride.driver) {
+      throw new BadRequestException("Driver Information not present....")
+    }
     if (ratingDto.rating < 1 || ratingDto.rating > 5) {
-        throw new BadRequestException('Rating must be between 1 and 5');
+      throw new BadRequestException('Rating must be between 1 and 5');
     }
 
-    // Check if rating already exists for this ride and user
     const existingRating = await this.rideRatingModel.findOne({
-        ride: rideId,
-        user: user._id,
+      ride: rideId,
+      user: user._id,
     });
 
     if (existingRating) {
-        throw new BadRequestException('This ride has already been rated by the user');
+      throw new BadRequestException('This ride has already been rated by the user');
     }
 
-    // Create new rating
     const newRating = new this.rideRatingModel({
-        driver: ride.driver,
-        user: user._id,
-        ride: rideId,
-        rating: ratingDto.rating,
-        message: ratingDto.message,
+      driver: ride.driver,
+      user: user._id,
+      ride: rideId,
+      rating: ratingDto.rating,
+      message: ratingDto.message,
     });
-
-    // Save rating
     await newRating.save();
 
-    // Update driver's average rating
-    // await this.updateDriverRating(ride.driver?._id);
-
+    await this.rideModel.findByIdAndUpdate(rideId, { ratingId: newRating._id })
+    await this.updateDriverRating(ride.driver._id)
     return new ApiResponse(true, 'Ride rated successfully!', HttpStatus.OK, {
-        rating: newRating,
+      rating: newRating,
     });
-}
+  }
 
-// Helper method to update driver's average rating
-private async updateDriverRating(driverId: Types.ObjectId): Promise<void> {
-    const ratings = await this.rideRatingModel.find({ driver: driverId });
-    
-    if (ratings.length > 0) {
-        const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
-        
-        await this.userModel.updateOne(
-            { _id: driverId },
-            { $set: { rating: Number(averageRating.toFixed(1)) } }
-        );
-    }
-}
+
+
+
 }

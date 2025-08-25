@@ -18,11 +18,10 @@ import {
   DriverPayout,
   DriverPayoutSchema
 } from '../schema/payout.schema';
-import {
-  DriverEarnings,
-  DriverEarningsSchema
-} from '../schema/driver-earnings.schema';
 import { RideRating, RideRatingSchema } from '../schema/rating.schma';
+import { Payment, PaymentSchema } from '../schema/payment.schema';
+import { DriverEarning, DriverEarningSchema } from '../schema/driver-earnings.schema';
+import { DriverPayment, DriverPaymentSchema } from '../schema/DriverPaymentInfo.schema';
 
 @Global()
 @Module({
@@ -33,9 +32,11 @@ import { RideRating, RideRatingSchema } from '../schema/rating.schma';
       { name: Ride.name, schema: RideSchema },
       { name: TemporaryRide.name, schema: TemporaryRideSchema },
       { name: DriverPayout.name, schema: DriverPayoutSchema },
-      { name: DriverEarnings.name, schema: DriverEarningsSchema },
+      { name: DriverEarning.name, schema: DriverEarningSchema },
       {name:RideRating.name ,schema :RideRatingSchema},
-      {name:DriverLicense.name ,schema:DriverLicenseSchema}
+      {name:DriverLicense.name ,schema:DriverLicenseSchema},
+      {name:Payment.name ,schema:PaymentSchema},
+      {name:DriverPayment.name ,schema :DriverPaymentSchema}
     ])
   ],
   exports: [MongooseModule]

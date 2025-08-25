@@ -21,71 +21,117 @@ const mongoose_2 = require("mongoose");
 const ride_schema_1 = require("../schema/ride.schema");
 const invoice_service_1 = require("../invoice/invoice.service");
 const cloudinary_service_1 = require("../cloudinary/cloudinary.service");
+const payment_schema_1 = require("../schema/payment.schema");
 let PaymentService = class PaymentService {
     configService;
     rideModel;
+    paymentModel;
     invoiceService;
     cloudinaryService;
     stripe;
-    constructor(configService, rideModel, invoiceService, cloudinaryService) {
+    constructor(configService, rideModel, paymentModel, invoiceService, cloudinaryService) {
         this.configService = configService;
         this.rideModel = rideModel;
+        this.paymentModel = paymentModel;
         this.invoiceService = invoiceService;
         this.cloudinaryService = cloudinaryService;
         this.stripe = new stripe_1.default(this.configService.get('STRIPE_SECRET_KEY'), {});
     }
-    async createCheckoutSession(successUrl, cancelUrl, totalAmount, rideId) {
+    async createCheckoutSession(successUrl, cancelUrl, rideId, totalAmount) {
         const amountInCents = Math.round(totalAmount);
+        const ride = await this.rideModel.findById(rideId);
+        if (!ride)
+            throw new common_1.BadRequestException('Ride not found');
+        if (ride.paymentStatus === 'paid') {
+            throw new common_1.BadRequestException('Ride already paid');
+        }
         const session = await this.stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
             line_items: [
                 {
                     price_data: {
                         currency: 'inr',
                         unit_amount: amountInCents,
-                        product_data: { name: 'Ride Payment' },
+                        product_data: {
+                            name: 'Ride Payment',
+                            description: `Ride from ${ride.pickupLocation?.coordinates} to ${ride.dropoffLocation?.coordinates}`
+                        },
                     },
                     quantity: 1,
                 },
             ],
             mode: 'payment',
-            success_url: successUrl,
-            cancel_url: cancelUrl,
-            metadata: { rideId },
+            success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${cancelUrl}?session_id={CHECKOUT_SESSION_ID}`,
+            metadata: {
+                rideId,
+                userId: ride.bookedBy.toString(),
+                driverId: ride.driver?.toString() || '',
+            },
+        });
+        const payment = await this.paymentModel.create({
+            userId: ride.bookedBy,
+            driverId: ride.driver,
+            rideId: ride._id,
+            paymentStatus: 'pending',
+            amount: totalAmount / 100,
+            checkoutSessionId: session.id,
+            paymentIntentId: session.payment_intent,
         });
         await this.rideModel.findByIdAndUpdate(rideId, {
-            checkoutSessionId: session.id,
+            paymentId: payment._id,
+            paymentStatus: 'processing'
         });
-        return session.url;
         return session.url;
     }
     async handleWebhook(rawBody, sig) {
         try {
             const event = this.stripe.webhooks.constructEvent(rawBody, sig, this.configService.get('STRIPE_WEBHOOK_ENDPOINT_SECRET'));
-            switch (event.type) {
-                case 'checkout.session.completed': {
-                    const session = event.data.object;
-                    const fullSession = await this.stripe.checkout.sessions.retrieve(session.id, {
-                        expand: ['payment_intent'],
-                    });
-                    const rideId = fullSession.metadata?.rideId;
-                    const paymentIntent = fullSession.payment_intent;
-                    if (rideId && paymentIntent) {
-                        await this.rideModel.findByIdAndUpdate(rideId, {
-                            paymentStatus: 'paid',
-                            paymentIntentId: paymentIntent.id,
-                        });
+            if (event.type === 'checkout.session.completed') {
+                const session = event.data.object;
+                const fullSession = await this.stripe.checkout.sessions.retrieve(session.id, {
+                    expand: ['payment_intent']
+                });
+                const rideId = fullSession.metadata?.rideId;
+                const paymentIntent = fullSession.payment_intent;
+                if (!rideId || !paymentIntent) {
+                    console.log('Missing rideId or paymentIntent in webhook');
+                    return { received: true };
+                }
+                const payment = await this.paymentModel.findOne({
+                    checkoutSessionId: session.id
+                });
+                if (!payment) {
+                    console.log(`Payment not found for session: ${session.id}`);
+                    return { received: true };
+                }
+                payment.status = 'paid';
+                payment.paymentIntentId = paymentIntent.id;
+                console.log(paymentIntent.id);
+                await payment.save();
+                const ride = await this.rideModel.findById(rideId);
+                if (ride) {
+                    ride.paymentStatus = 'paid';
+                    await ride.save();
+                    try {
                         const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
                         const uploadResult = await this.cloudinaryService.uploadFile({
                             buffer: pdfBuffer,
                             originalname: `invoice_${rideId}.pdf`,
                             mimetype: 'application/pdf',
                         });
-                        await this.rideModel.findByIdAndUpdate(rideId, {
-                            invoiceUrl: uploadResult.secure_url,
-                        });
+                        if (!uploadResult) {
+                            throw new common_1.BadRequestException("invoice to uploaded the cloud");
+                        }
+                        ride.invoiceUrl = uploadResult.secure_url;
+                        await ride.save();
+                        console.log('Invoice uploaded successfully');
                     }
-                    break;
+                    catch (invoiceError) {
+                        console.error('Failed to generate/upload invoice:', invoiceError);
+                    }
                 }
+                console.log('Payment completed successfully for ride:', rideId);
             }
             return { received: true };
         }
@@ -94,24 +140,22 @@ let PaymentService = class PaymentService {
             throw new common_1.BadRequestException(`Webhook error: ${error.message}`);
         }
     }
-    async handleRefund(paymentIntentId, rideId) {
-        const ride = await this.rideModel.findById(rideId);
-        if (!ride) {
+    async handleRefund(rideId) {
+        const ride = await this.rideModel.findById(rideId).populate('paymentId');
+        if (!ride)
             throw new common_1.HttpException('Ride not found', common_1.HttpStatus.NOT_FOUND);
-        }
-        if (!paymentIntentId) {
+        if (!ride.paymentId)
+            throw new common_1.HttpException('Payment not found', common_1.HttpStatus.NOT_FOUND);
+        const payment = ride.paymentId;
+        if (!payment.paymentIntentId)
             throw new common_1.BadRequestException('Payment intent ID is required for refund');
-        }
-        if (ride.status === 'started' || ride.status === 'completed') {
-            console.log("Ride has started or completed, refund not allowed");
+        if (ride.status === 'started' || ride.status === 'completed')
             throw new common_1.BadRequestException('Refund not allowed once ride has started or completed');
-        }
+        const createdAt = new Date(ride.createdAt);
+        const diffMinutes = Math.floor((Date.now() - createdAt.getTime()) / 60000);
         let refundAmount = 0;
         let refundPercentage = 0;
         let refundReason = '';
-        const now = new Date();
-        const createdAt = new Date(ride.createdAt);
-        const diffMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
         if (ride.cancelledBy === 'Driver') {
             refundAmount = ride.TotalFare;
             refundPercentage = 100;
@@ -136,23 +180,19 @@ let PaymentService = class PaymentService {
             }
             refundAmount = (ride.TotalFare * refundPercentage) / 100;
         }
-        if (refundAmount <= 0) {
+        if (refundAmount <= 0)
             throw new common_1.BadRequestException('No refund applicable for this ride');
-        }
-        console.log("Full refund applicable as ride was cancelled by Driver");
-        console.log("Refund Amount:", refundAmount);
-        console.log("Refund Percentage:", refundPercentage);
-        console.log("Refund Reason:", refundReason);
         const refund = await this.stripe.refunds.create({
-            payment_intent: paymentIntentId,
+            payment_intent: payment.paymentIntentId,
             amount: Math.round(refundAmount * 100),
         });
+        payment.refundStatus = 'processed';
+        payment.refundAmount = refundAmount;
+        payment.refundPercentage = refundPercentage;
+        payment.refundReason = refundReason;
+        payment.refundedAt = new Date();
+        await payment.save();
         ride.paymentStatus = refundPercentage === 100 ? 'refunded' : 'partially_refunded';
-        ride.refundStatus = 'processed';
-        ride.refundAmount = refundAmount;
-        ride.refundPercentage = refundPercentage;
-        ride.refundReason = refundReason;
-        ride.refundedAt = new Date();
         await ride.save();
         return {
             message: 'Refund initiated successfully!',
@@ -264,7 +304,9 @@ exports.PaymentService = PaymentService;
 exports.PaymentService = PaymentService = __decorate([
     (0, common_1.Injectable)(),
     __param(1, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
+    __param(2, (0, mongoose_1.InjectModel)(payment_schema_1.Payment.name)),
     __metadata("design:paramtypes", [config_1.ConfigService,
+        mongoose_2.Model,
         mongoose_2.Model,
         invoice_service_1.InvoiceService,
         cloudinary_service_1.CloudinaryService])

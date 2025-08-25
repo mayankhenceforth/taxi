@@ -4,18 +4,20 @@ import { Model } from 'mongoose';
 import { RideDocument } from '../schema/ride.schema';
 import { InvoiceService } from '../invoice/invoice.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { PaymentDocument } from '../schema/payment.schema';
 export declare class PaymentService {
     private readonly configService;
     private readonly rideModel;
+    private readonly paymentModel;
     private readonly invoiceService;
     private readonly cloudinaryService;
     private stripe;
-    constructor(configService: ConfigService, rideModel: Model<RideDocument>, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
-    createCheckoutSession(successUrl: string, cancelUrl: string, totalAmount: number, rideId: string): Promise<string | null>;
+    constructor(configService: ConfigService, rideModel: Model<RideDocument>, paymentModel: Model<PaymentDocument>, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
+    createCheckoutSession(successUrl: string, cancelUrl: string, rideId: string, totalAmount: number): Promise<string>;
     handleWebhook(rawBody: Buffer, sig: string): Promise<{
         received: boolean;
     }>;
-    handleRefund(paymentIntentId: string, rideId: string): Promise<{
+    handleRefund(rideId: string): Promise<{
         message: string;
         refundId: string;
         status: string | null;

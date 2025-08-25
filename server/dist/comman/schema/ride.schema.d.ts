@@ -1,4 +1,4 @@
-import { Types, Document } from 'mongoose';
+import mongoose, { Types, Document } from 'mongoose';
 export type RideDocument = Ride & Document;
 export declare class Ride {
     bookedBy: Types.ObjectId;
@@ -26,10 +26,7 @@ export declare class Ride {
     };
     status: string;
     paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
-    refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
-    refundAmount?: number;
-    refundPercentage?: number;
-    refundReason?: string;
+    paymentId?: Types.ObjectId;
     pickupLocation: {
         type: string;
         coordinates: number[];
@@ -38,12 +35,11 @@ export declare class Ride {
         type: string;
         coordinates: number[];
     };
-    otp: number;
+    otp?: number;
     cancelReason?: string;
     cancelledBy?: 'User' | 'Driver' | 'System';
     invoiceUrl?: string;
-    paymentIntentId?: string;
-    checkoutSessionId?: string;
+    ratingId?: Types.ObjectId;
     completedAt?: Date;
     startedAt?: Date;
     acceptedAt?: Date;
@@ -55,11 +51,11 @@ export declare class Ride {
     createdAt: Date;
     updatedAt: Date;
 }
-export declare const RideSchema: import("mongoose").Schema<Ride, import("mongoose").Model<Ride, any, any, any, Document<unknown, any, Ride, any, {}> & Ride & {
+export declare const RideSchema: mongoose.Schema<Ride, mongoose.Model<Ride, any, any, any, mongoose.Document<unknown, any, Ride, any, {}> & Ride & {
     _id: Types.ObjectId;
 } & {
     __v: number;
-}, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, Ride, Document<unknown, {}, import("mongoose").FlatRecord<Ride>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<Ride> & {
+}, any>, {}, {}, {}, {}, mongoose.DefaultSchemaOptions, Ride, mongoose.Document<unknown, {}, mongoose.FlatRecord<Ride>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<Ride> & {
     _id: Types.ObjectId;
 } & {
     __v: number;
@@ -91,6 +87,7 @@ export declare class TemporaryRide {
     };
     status: string;
     paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
+    paymentId?: Types.ObjectId;
     pickupLocation: {
         type: string;
         coordinates: number[];
@@ -99,15 +96,15 @@ export declare class TemporaryRide {
         type: string;
         coordinates: number[];
     };
-    otp: number;
+    otp?: number;
     eligibleDrivers: Types.ObjectId[];
     createdAt: Date;
 }
-export declare const TemporaryRideSchema: import("mongoose").Schema<TemporaryRide, import("mongoose").Model<TemporaryRide, any, any, any, Document<unknown, any, TemporaryRide, any, {}> & TemporaryRide & {
+export declare const TemporaryRideSchema: mongoose.Schema<TemporaryRide, mongoose.Model<TemporaryRide, any, any, any, mongoose.Document<unknown, any, TemporaryRide, any, {}> & TemporaryRide & {
     _id: Types.ObjectId;
 } & {
     __v: number;
-}, any>, {}, {}, {}, {}, import("mongoose").DefaultSchemaOptions, TemporaryRide, Document<unknown, {}, import("mongoose").FlatRecord<TemporaryRide>, {}, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & import("mongoose").FlatRecord<TemporaryRide> & {
+}, any>, {}, {}, {}, {}, mongoose.DefaultSchemaOptions, TemporaryRide, mongoose.Document<unknown, {}, mongoose.FlatRecord<TemporaryRide>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<TemporaryRide> & {
     _id: Types.ObjectId;
 } & {
     __v: number;

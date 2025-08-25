@@ -30,10 +30,10 @@ let RideCronService = RideCronService_1 = class RideCronService {
     async checkPendingRides() {
         const now = new Date();
         const ridesPendingDriver = await this.tempRideModel.find({
-            createdAt: { $lte: new Date(now.getTime() - 30 * 1000) },
+            createdAt: { $lte: new Date(now.getTime() - 2 * 60 * 1000) },
         });
         for (const ride of ridesPendingDriver) {
-            this.logger.log(`Ride ${ride._id} has no driver after 30 seconds.`);
+            this.logger.log(`Ride ${ride._id} has no driver after 1 minutes`);
         }
         const ridesToTerminate = await this.tempRideModel.find({
             createdAt: { $lte: new Date(now.getTime() - 6 * 60 * 1000) },
@@ -70,7 +70,7 @@ let RideCronService = RideCronService_1 = class RideCronService {
 };
 exports.RideCronService = RideCronService;
 __decorate([
-    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_30_SECONDS),
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_MINUTE),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

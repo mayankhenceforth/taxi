@@ -18,6 +18,7 @@ import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import Stripe from 'stripe';
 import { PaymentService } from 'src/comman/payment/payment.service';
+import { PaymentDocument } from 'src/comman/schema/payment.schema';
 export type UserRole = 'super-admin' | 'admin' | 'user';
 
 @Injectable()
@@ -333,33 +334,42 @@ async processRefund(rideId: string) {
     throw new HttpException('Ride ID is required', HttpStatus.BAD_REQUEST);
   }
 
-  const ride = await this.rideModel.findById(rideId)
-
-  console.log("ride:", ride);
+  const ride = await this.rideModel.findById(rideId).populate('paymentId');
 
   if (!ride) {
     throw new HttpException('Ride not found', HttpStatus.NOT_FOUND);
   }
 
-  if (ride.refundStatus === 'processed') {
+  let payment = ride.paymentId as unknown as PaymentDocument;
+
+  if (!payment) {
+    throw new HttpException('Payment not found for this ride', HttpStatus.NOT_FOUND);
+  }
+
+  if (payment.refundStatus === 'processed') {
     throw new HttpException('Refund has already been processed for this ride', HttpStatus.BAD_REQUEST);
   }
 
-  // Here you would integrate with your payment gateway to process the refund.
-  if (!ride.paymentIntentId) {
+  if (!payment.paymentIntentId) {
     throw new HttpException('Payment intent ID not found for this ride', HttpStatus.BAD_REQUEST);
   }
-    const refundResult = await this.paymentService.handleRefund(ride.paymentIntentId, rideId);
 
-  ride.refundStatus = 'processed';
-  ride.paymentStatus = 'refunded';
+  const refundResult = await this.paymentService.handleRefund(rideId);
+
+  ride.paymentStatus = refundResult.refundPercentage === 100 ? 'refunded' : 'partially_refunded';
   await ride.save();
 
   return new ApiResponse(
     true,
     'Refund processed successfully!',
     HttpStatus.OK,
-    { rideId: ride._id, refundStatus: ride.refundStatus },
+    {
+      rideId: ride._id,
+      refundStatus: ride.paymentStatus,
+      refundAmount: refundResult.refundedAmount,
+      refundPercentage: refundResult.refundPercentage,
+      paymentId: payment._id,
+    },
   );
 }
 

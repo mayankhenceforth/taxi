@@ -43,6 +43,9 @@ export declare class AdminService {
     getNewRides(filter: string): Promise<Buffer>;
     processRefund(rideId: string): Promise<ApiResponse<{
         rideId: unknown;
-        refundStatus: "processed";
+        refundStatus: "refunded" | "partially_refunded";
+        refundAmount: number;
+        refundPercentage: number;
+        paymentId: unknown;
     }>>;
 }

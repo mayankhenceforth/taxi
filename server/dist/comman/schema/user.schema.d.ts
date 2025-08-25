@@ -1,7 +1,11 @@
 import { Types } from "mongoose";
+import { DriverPayout } from "./payout.schema";
+import { DriverEarning } from "./driver-earnings.schema";
 export type UserDocument = User & Document;
 export type VehicleDetailsDocument = VehicleDetails & Document;
 export type DriverLicenseDocument = DriverLicense & Document;
+export type DriverEarningDocument = DriverEarning & Document;
+export type DriverPayoutDocument = DriverPayout & Document;
 export declare class DriverLicense {
     licenseNumber: string;
     issueDate: Date;

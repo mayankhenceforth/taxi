@@ -240,22 +240,30 @@ let AdminService = class AdminService {
         if (!rideId) {
             throw new common_1.HttpException('Ride ID is required', common_1.HttpStatus.BAD_REQUEST);
         }
-        const ride = await this.rideModel.findById(rideId);
-        console.log("ride:", ride);
+        const ride = await this.rideModel.findById(rideId).populate('paymentId');
         if (!ride) {
             throw new common_1.HttpException('Ride not found', common_1.HttpStatus.NOT_FOUND);
         }
-        if (ride.refundStatus === 'processed') {
+        let payment = ride.paymentId;
+        if (!payment) {
+            throw new common_1.HttpException('Payment not found for this ride', common_1.HttpStatus.NOT_FOUND);
+        }
+        if (payment.refundStatus === 'processed') {
             throw new common_1.HttpException('Refund has already been processed for this ride', common_1.HttpStatus.BAD_REQUEST);
         }
-        if (!ride.paymentIntentId) {
+        if (!payment.paymentIntentId) {
             throw new common_1.HttpException('Payment intent ID not found for this ride', common_1.HttpStatus.BAD_REQUEST);
         }
-        const refundResult = await this.paymentService.handleRefund(ride.paymentIntentId, rideId);
-        ride.refundStatus = 'processed';
-        ride.paymentStatus = 'refunded';
+        const refundResult = await this.paymentService.handleRefund(rideId);
+        ride.paymentStatus = refundResult.refundPercentage === 100 ? 'refunded' : 'partially_refunded';
         await ride.save();
-        return new api_response_1.default(true, 'Refund processed successfully!', common_1.HttpStatus.OK, { rideId: ride._id, refundStatus: ride.refundStatus });
+        return new api_response_1.default(true, 'Refund processed successfully!', common_1.HttpStatus.OK, {
+            rideId: ride._id,
+            refundStatus: ride.paymentStatus,
+            refundAmount: refundResult.refundedAmount,
+            refundPercentage: refundResult.refundPercentage,
+            paymentId: payment._id,
+        });
     }
 };
 exports.AdminService = AdminService;

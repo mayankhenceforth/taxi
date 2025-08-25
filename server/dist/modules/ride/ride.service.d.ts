@@ -13,11 +13,17 @@ import { DriverService } from '../driver/driver.service';
 import { MailService } from 'src/comman/mail/mail.service';
 import { RideRatingDto } from './dto/rating.dto';
 import { RideRatingDocument } from 'src/comman/schema/rating.schma';
+import { DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
+import { DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
+import { PaymentDocument } from 'src/comman/schema/payment.schema';
 export declare class RideService {
     private readonly rideModel;
     private readonly TemporyRideModel;
     private readonly userModel;
     private readonly rideRatingModel;
+    private readonly driverPaymentModel;
+    private readonly driverEarningModel;
+    private readonly paymentModel;
     private readonly rideGateway;
     private readonly paymentService;
     private readonly invoiceService;
@@ -27,12 +33,13 @@ export declare class RideService {
     private readonly logger;
     private rideTimers;
     private readonly twilioClient;
-    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideRatingModel: Model<RideRatingDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService, cloudinaryService: CloudinaryService, driverService: DriverService, mailService: MailService);
+    constructor(rideModel: Model<RideDocument>, TemporyRideModel: Model<TemporaryRideDocument>, userModel: Model<UserDocument>, rideRatingModel: Model<RideRatingDocument>, driverPaymentModel: Model<DriverPaymentDocument>, driverEarningModel: Model<DriverEarningDocument>, paymentModel: Model<PaymentDocument>, rideGateway: RideGateway, paymentService: PaymentService, invoiceService: InvoiceService, cloudinaryService: CloudinaryService, driverService: DriverService, mailService: MailService);
     private getDistanceKm;
     private getNearbyDrivers;
     private sendRideRequestToDrivers;
     private clearRideTimers;
     private calculateFare;
+    private updateDriverRating;
     createRide(request: any, createRideDto: CreateRideDto): Promise<ApiResponse<any>>;
     acceptRide(rideId: string, request: any): Promise<ApiResponse<any>>;
     driverArrive(rideId: string, request: any): Promise<ApiResponse<any>>;
@@ -42,5 +49,4 @@ export declare class RideService {
     confirmPayment(rideId: string): Promise<Buffer>;
     rideComplete(rideId: string, request: any): Promise<ApiResponse<any>>;
     rideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<ApiResponse<any>>;
-    private updateDriverRating;
 }

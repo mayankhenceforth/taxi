@@ -24,17 +24,13 @@ export declare class DriverController {
     getDriverEarnings(req: any): Promise<{
         success: boolean;
         message: string;
-        data: import("mongoose").Document<unknown, {}, import("../../comman/schema/driver-earnings.schema").DriverEarningsDocument, {}, {}> & import("../../comman/schema/driver-earnings.schema").DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        };
+        data: any;
     }>;
     getDriverEarningsHistory(req: any, page?: number, limit?: number): Promise<{
         success: boolean;
         message: string;
         data: {
-            earnings: (import("mongoose").Document<unknown, {}, import("../../comman/schema/driver-earnings.schema").DriverEarningsDocument, {}, {}> & import("../../comman/schema/driver-earnings.schema").DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+            earnings: (import("mongoose").Document<unknown, {}, import("../../comman/schema/driver-earnings.schema").DriverEarningDocument, {}, {}> & import("../../comman/schema/driver-earnings.schema").DriverEarning & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
                 _id: unknown;
             }> & {
                 __v: number;

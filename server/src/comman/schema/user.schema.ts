@@ -1,11 +1,13 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
-import { DriverPayout } from "./payout.schema";
-import { DriverEarnings } from "./driver-earnings.schema";
+import { DriverPayout } from "./payout.schema"
+import { DriverEarning } from "./driver-earnings.schema";
 
 export type UserDocument = User & Document;
 export type VehicleDetailsDocument = VehicleDetails & Document;
 export type DriverLicenseDocument = DriverLicense & Document;
+export type DriverEarningDocument = DriverEarning & Document;
+export type DriverPayoutDocument = DriverPayout & Document
 
 @Schema()
 export class DriverLicense {
@@ -148,7 +150,7 @@ export class User {
     @Prop({ type: [{ type: Types.ObjectId, ref: DriverPayout.name }] })
     payoutAccounts?: Types.ObjectId[];
 
-    @Prop({ type: Types.ObjectId, ref: DriverEarnings.name })
+    @Prop({ type: Types.ObjectId, ref: DriverEarning.name })
     earnings?: Types.ObjectId;
     @Prop({
         default: 0,

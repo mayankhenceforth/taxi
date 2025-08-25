@@ -209,7 +209,7 @@ __decorate([
     __metadata("design:type", Array)
 ], User.prototype, "payoutAccounts", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: driver_earnings_schema_1.DriverEarnings.name }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: driver_earnings_schema_1.DriverEarning.name }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], User.prototype, "earnings", void 0);
 __decorate([

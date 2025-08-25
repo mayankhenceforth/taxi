@@ -51,7 +51,7 @@ let PaymentController = class PaymentController {
         }
     }
     async handleRefund(intentId, rideId) {
-        return this.paymentService.handleRefund(intentId, rideId);
+        return this.paymentService.handleRefund(rideId);
     }
     handleCreateSubscription(createSubscriptionDto) {
         return this.paymentService.createSubscription(createSubscriptionDto.customerId, createSubscriptionDto.priceId);

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import mongoose, { Document, Types } from 'mongoose';
 import { Ride } from './ride.schema';
 import { User } from './user.schema';
 
@@ -29,30 +29,39 @@ export enum PaymentType {
   OTHER = 'other',
 }
 
+export enum RefundStatus {
+  NONE = 'none',
+  PROCESSED = 'processed',
+  FAILED = 'failed',
+}
+
 @Schema({ timestamps: true })
 export class Payment {
-  @Prop({ required: true, type: Types.ObjectId, ref: User.name })
-  userId: Types.ObjectId;
-
-  @Prop({ type: Types.ObjectId, ref: Ride.name })
-  rideId?: Types.ObjectId;
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Ride', required: true })
+   rideId: Types.ObjectId;
+ 
+   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Driver', required: true })
+   driverId: Types.ObjectId;
+ 
+   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true })
+   userId: Types.ObjectId;
 
   @Prop({ required: true, type: Number })
   amount: number;
 
-  @Prop({ required: true, enum: Object.values(PaymentType) })
-  type: PaymentType;
+//   @Prop({ required: true, enum: Object.values(PaymentType) })
+//   type: PaymentType;
 
-  @Prop({ required: true, enum: Object.values(PaymentMethod) })
-  method: PaymentMethod;
+//   @Prop({ required: true, enum: Object.values(PaymentMethod) })
+//   method: PaymentMethod;
 
-  @Prop({ required: true, enum: Object.values(PaymentStatus), default: PaymentStatus.PENDING })
-  status: PaymentStatus;
+ @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  status: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
   @Prop()
   transactionId?: string;
 
-  @Prop()
+  @Prop({ required: false })
   paymentIntentId?: string;
 
   @Prop()
@@ -60,6 +69,13 @@ export class Payment {
 
   @Prop({ type: Number, default: 0 })
   refundAmount?: number;
+
+  @Prop({ type: Number, default: 0 })
+  refundPercentage?: number;
+
+  @Prop({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' })
+  refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
+
 
   @Prop()
   refundReason?: string;
@@ -73,3 +89,4 @@ export const PaymentSchema = SchemaFactory.createForClass(Payment);
 PaymentSchema.index({ userId: 1, status: 1 });
 PaymentSchema.index({ rideId: 1 });
 PaymentSchema.index({ type: 1 });
+PaymentSchema.index({ refundStatus: 1 });

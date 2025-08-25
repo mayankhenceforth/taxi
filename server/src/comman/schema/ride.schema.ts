@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Types, Document } from 'mongoose';
+import mongoose, { Types, Document } from 'mongoose';
 import { User } from './user.schema';
+import { Payment } from './payment.schema';
 
 export type RideDocument = Ride & Document;
 
@@ -32,21 +33,24 @@ export class Ride {
   @Prop({ type: Number, required: true })
   platformEarnings: number;
 
-  @Prop({ type: {
-    baseFare: Number,
-    gstAmount: Number,
-    platformFee: Number,
-    surgeCharge: Number,
-    nightCharge: Number,
-    tollFee: Number,
-    parkingFee: Number,
-    waitingCharge: Number,
-    bonusAmount: Number,
-    referralDiscount: Number,
-    promoDiscount: Number,
-    subTotal: Number,
-    totalFare: Number
-  }, default: {} })
+  @Prop({
+    type: {
+      baseFare: Number,
+      gstAmount: Number,
+      platformFee: Number,
+      surgeCharge: Number,
+      nightCharge: Number,
+      tollFee: Number,
+      parkingFee: Number,
+      waitingCharge: Number,
+      bonusAmount: Number,
+      referralDiscount: Number,
+      promoDiscount: Number,
+      subTotal: Number,
+      totalFare: Number
+    },
+    default: {}
+  })
   fareBreakdown: {
     baseFare: number;
     gstAmount: number;
@@ -63,23 +67,23 @@ export class Ride {
     totalFare: number;
   };
 
-  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
+  @Prop({
+    required: true,
+    type: String,
+    enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
+    default: 'processing'
+  })
   status: string;
 
-  @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  @Prop({
+    required: true,
+    enum: ['unpaid', 'paid', 'refunded', 'partially_refunded',"pending"],
+    default: 'pending'
+  })
   paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
-  @Prop({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' })
-  refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
-
-  @Prop({ type: Number, default: 0 })
-  refundAmount?: number;
-
-  @Prop({ type: Number, default: 0 })
-  refundPercentage?: number;
-
-  @Prop({ type: String, required: false })
-  refundReason?: string;
+ @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Payment' })
+  paymentId?: Types.ObjectId;
 
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   pickupLocation: { type: string; coordinates: number[] };
@@ -87,23 +91,20 @@ export class Ride {
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   dropoffLocation: { type: string; coordinates: number[] };
 
-  @Prop({ required: false })
-  otp: number;
+  @Prop()
+  otp?: number;
 
-  @Prop({ required: false })
+  @Prop()
   cancelReason?: string;
 
-  @Prop({ required: false, enum: ['User', 'Driver', 'System'] })
+  @Prop({ enum: ['User', 'Driver', 'System'] })
   cancelledBy?: 'User' | 'Driver' | 'System';
 
-  @Prop({ required: false })
+  @Prop()
   invoiceUrl?: string;
 
-  @Prop({ required: false })
-  paymentIntentId?: string;
-
-  @Prop({ required: false })
-  checkoutSessionId?: string;
+   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'RideRating' })
+  ratingId?: Types.ObjectId;
 
   @Prop({ type: Date }) completedAt?: Date;
   @Prop({ type: Date }) startedAt?: Date;
@@ -151,21 +152,24 @@ export class TemporaryRide {
   @Prop({ type: Number, required: true })
   platformEarnings: number;
 
-  @Prop({ type: {
-    baseFare: Number,
-    gstAmount: Number,
-    platformFee: Number,
-    surgeCharge: Number,
-    nightCharge: Number,
-    tollFee: Number,
-    parkingFee: Number,
-    waitingCharge: Number,
-    bonusAmount: Number,
-    referralDiscount: Number,
-    promoDiscount: Number,
-    subTotal: Number,
-    totalFare: Number
-  }, default: {} })
+  @Prop({
+    type: {
+      baseFare: Number,
+      gstAmount: Number,
+      platformFee: Number,
+      surgeCharge: Number,
+      nightCharge: Number,
+      tollFee: Number,
+      parkingFee: Number,
+      waitingCharge: Number,
+      bonusAmount: Number,
+      referralDiscount: Number,
+      promoDiscount: Number,
+      subTotal: Number,
+      totalFare: Number
+    },
+    default: {}
+  })
   fareBreakdown: {
     baseFare: number;
     gstAmount: number;
@@ -182,11 +186,23 @@ export class TemporaryRide {
     totalFare: number;
   };
 
-  @Prop({ required: true, type: String, enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'], default: 'processing' })
+  @Prop({
+    required: true,
+    type: String,
+    enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
+    default: 'processing'
+  })
   status: string;
 
-  @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  @Prop({
+    required: true,
+    enum: ['unpaid', 'paid', 'refunded', 'partially_refunded'],
+    default: 'unpaid'
+  })
   paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
+
+  @Prop({ type: Types.ObjectId, ref: Payment.name })
+  paymentId?: Types.ObjectId;
 
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   pickupLocation: { type: string; coordinates: number[] };
@@ -194,8 +210,8 @@ export class TemporaryRide {
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
   dropoffLocation: { type: string; coordinates: number[] };
 
-  @Prop({ required: false })
-  otp: number;
+  @Prop()
+  otp?: number;
 
   @Prop({ type: [Types.ObjectId], ref: User.name, default: [] })
   eligibleDrivers: Types.ObjectId[];

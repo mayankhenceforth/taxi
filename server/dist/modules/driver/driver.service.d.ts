@@ -3,13 +3,15 @@ import { User, UserDocument, VehicleDetailsDocument } from 'src/comman/schema/us
 import { Model, Types } from 'mongoose';
 import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
 import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
-import { DriverEarnings, DriverEarningsDocument } from 'src/comman/schema/driver-earnings.schema';
+import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
+import { DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
 export declare class DriverService {
     private readonly userModel;
     private readonly vehicleDetailsModel;
-    private readonly DriverPayOutModel;
+    private readonly driverPayoutModel;
     private readonly earningModel;
-    constructor(userModel: Model<UserDocument>, vehicleDetailsModel: Model<VehicleDetailsDocument>, DriverPayOutModel: Model<DriverPayoutDocument>, earningModel: Model<DriverEarningsDocument>);
+    private driverPaymentModel;
+    constructor(userModel: Model<UserDocument>, vehicleDetailsModel: Model<VehicleDetailsDocument>, driverPayoutModel: Model<DriverPayoutDocument>, earningModel: Model<DriverEarningDocument>, driverPaymentModel: Model<DriverPaymentDocument>);
     setupDriverAccount(req: any, setupDriverAccountDto: SetupDriverAccountDto): Promise<{
         message: string;
         data: (import("mongoose").Document<unknown, {}, UserDocument, {}, {}> & User & Document & {
@@ -18,7 +20,7 @@ export declare class DriverService {
             __v: number;
         }) | null;
     }>;
-    createPaymentAccount(req: any, createDriverPayoutDto: CreateDriverPayoutDto): Promise<{
+    createPaymentAccount(req: any, dto: CreateDriverPayoutDto): Promise<{
         success: boolean;
         message: string;
         data: import("mongoose").Document<unknown, {}, DriverPayoutDocument, {}, {}> & DriverPayout & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
@@ -27,25 +29,16 @@ export declare class DriverService {
             __v: number;
         };
     }>;
-    updateDriverEarnings(rideId: Types.ObjectId, driverId: Types.ObjectId, amount: number): Promise<import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+    recordDriverEarning(rideId: string, driverId: Types.ObjectId, userId: Types.ObjectId, paymentId: Types.ObjectId | string, amount: number): Promise<import("mongoose").Document<unknown, {}, DriverEarningDocument, {}, {}> & DriverEarning & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
         _id: unknown;
     }> & {
         __v: number;
-    }>;
-    getDriverEarnings(req: any): Promise<{
-        success: boolean;
-        message: string;
-        data: import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
-            _id: unknown;
-        }> & {
-            __v: number;
-        };
     }>;
     getDriverEarningsHistory(req: any, page?: number, limit?: number): Promise<{
         success: boolean;
         message: string;
         data: {
-            earnings: (import("mongoose").Document<unknown, {}, DriverEarningsDocument, {}, {}> & DriverEarnings & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+            earnings: (import("mongoose").Document<unknown, {}, DriverEarningDocument, {}, {}> & DriverEarning & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
                 _id: unknown;
             }> & {
                 __v: number;
@@ -57,5 +50,10 @@ export declare class DriverService {
                 itemsPerPage: number;
             };
         };
+    }>;
+    getDriverEarnings(req: any): Promise<{
+        success: boolean;
+        message: string;
+        data: any;
     }>;
 }

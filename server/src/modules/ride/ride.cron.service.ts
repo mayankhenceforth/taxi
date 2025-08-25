@@ -18,21 +18,21 @@ export class RideCronService {
     private rideModel: Model<RideDocument>,
   ) { }
 
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_MINUTE)
   async checkPendingRides() {
     const now = new Date();
 
     const ridesPendingDriver = await this.tempRideModel.find({
-      createdAt: { $lte: new Date(now.getTime() - 30 * 1000) }, // 30 seconds
+      createdAt: { $lte: new Date(now.getTime() - 2 * 60 * 1000) }, 
     });
 
     for (const ride of ridesPendingDriver) {
       this.logger.log(
-        `Ride ${ride._id} has no driver after 30 seconds.`,
+        `Ride ${ride._id} has no driver after 1 minutes`,
       );
     }
     const ridesToTerminate = await this.tempRideModel.find({
-      createdAt: { $lte: new Date(now.getTime() - 6 * 60 * 1000) }, // 3 minutes
+      createdAt: { $lte: new Date(now.getTime() - 6 * 60 * 1000) },
     });
 
     for (const ride of ridesToTerminate) {

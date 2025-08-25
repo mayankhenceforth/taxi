@@ -19,81 +19,59 @@ const user_schema_1 = require("../../comman/schema/user.schema");
 const mongoose_2 = require("mongoose");
 const payout_schema_1 = require("../../comman/schema/payout.schema");
 const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
+const DriverPaymentInfo_schema_1 = require("../../comman/schema/DriverPaymentInfo.schema");
 let DriverService = class DriverService {
     userModel;
     vehicleDetailsModel;
-    DriverPayOutModel;
+    driverPayoutModel;
     earningModel;
-    constructor(userModel, vehicleDetailsModel, DriverPayOutModel, earningModel) {
+    driverPaymentModel;
+    constructor(userModel, vehicleDetailsModel, driverPayoutModel, earningModel, driverPaymentModel) {
         this.userModel = userModel;
         this.vehicleDetailsModel = vehicleDetailsModel;
-        this.DriverPayOutModel = DriverPayOutModel;
+        this.driverPayoutModel = driverPayoutModel;
         this.earningModel = earningModel;
+        this.driverPaymentModel = driverPaymentModel;
     }
     async setupDriverAccount(req, setupDriverAccountDto) {
         const driverId = req.user?._id;
-        const driver = await this.userModel.findOne({
-            _id: driverId,
-            role: 'driver',
-        }).select("name _id contactNumber role createdAt profilePic");
-        if (!driver) {
+        const driver = await this.userModel.findOne({ _id: driverId, role: 'driver' })
+            .select("name _id contactNumber role createdAt profilePic");
+        if (!driver)
             throw new common_1.UnauthorizedException('Driver not found!');
-        }
         const { coordinates, vehicleInfo } = setupDriverAccountDto;
-        if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
-            throw new common_1.BadRequestException('Coordinates are required!');
-        }
-        if (!vehicleInfo || !vehicleInfo?.type || !vehicleInfo?.numberPlate || !vehicleInfo?.model) {
-            throw new common_1.BadRequestException('Vehicle info is required!');
-        }
+        if (!coordinates || coordinates.length !== 2)
+            throw new common_1.BadRequestException('Coordinates required!');
+        if (!vehicleInfo?.type || !vehicleInfo?.numberPlate || !vehicleInfo?.model)
+            throw new common_1.BadRequestException('Vehicle info required!');
         const session = await this.userModel.db.startSession();
         session.startTransaction();
         try {
-            if (driver?.vehicleDetails) {
+            if (driver.vehicleDetails)
                 await this.vehicleDetailsModel.findByIdAndDelete(driver.vehicleDetails, { session });
-            }
             const newVehicleDetails = await this.vehicleDetailsModel.create([{
                     type: vehicleInfo.type.toLowerCase(),
                     numberPlate: vehicleInfo.numberPlate.toLowerCase(),
                     model: vehicleInfo.model.toLowerCase(),
                 }], { session });
-            let earningsDoc = await this.earningModel.findOne({ driverId }).session(session);
-            if (!earningsDoc) {
-                const newEarnings = await this.earningModel.create([{
-                        driverId,
-                        type: driver_earnings_schema_1.EarningsType.RIDE,
-                        amount: 0,
-                        description: 'Initial earnings document',
-                        status: driver_earnings_schema_1.EarningsStatus.PROCESSED,
-                        totalEarnings: 0,
-                        totalRides: 0,
-                        availableBalance: 0,
-                        paidBalance: 0,
-                    }], { session });
-                earningsDoc = newEarnings[0];
-            }
-            const updatedDriverInfo = await this.userModel
-                .findByIdAndUpdate(driverId, {
-                $set: {
-                    location: {
-                        type: 'Point',
-                        coordinates,
-                    },
-                    vehicleDetails: newVehicleDetails[0]._id,
-                    earnings: earningsDoc._id,
-                },
-            }, {
-                new: true,
-                session,
-            })
+            const newEarning = await this.earningModel.create([{
+                    driverId,
+                    rideId: null,
+                    userId: null,
+                    paymentId: null,
+                    amount: 0,
+                    status: driver_earnings_schema_1.EarningsStatus.PROCESSED,
+                }], { session });
+            const updatedDriver = await this.userModel.findByIdAndUpdate(driverId, {
+                location: { type: 'Point', coordinates },
+                vehicleDetails: newVehicleDetails[0]._id,
+                earnings: newEarning[0]._id,
+            }, { new: true, session })
                 .populate('vehicleDetails earnings')
-                .select('location vehicleDetails earnings name email contactNumber isEmailVerified isContactNumberVerified profilePic role');
+                .select('location vehicleDetails earnings name email contactNumber profilePic role');
             await session.commitTransaction();
             session.endSession();
-            return {
-                message: "Driver setup successfully",
-                data: updatedDriverInfo
-            };
+            return { message: "Driver setup successfully", data: updatedDriver };
         }
         catch (error) {
             await session.abortTransaction();
@@ -101,116 +79,85 @@ let DriverService = class DriverService {
             throw new common_1.InternalServerErrorException('Failed to setup driver account: ' + error.message);
         }
     }
-    async createPaymentAccount(req, createDriverPayoutDto) {
+    async createPaymentAccount(req, dto) {
         const driverId = req.user?._id;
-        const driver = await this.userModel.findOne({
-            _id: driverId,
-            role: 'driver',
-        }).populate('vehicleDetails earnings');
-        if (!driver) {
+        const driver = await this.userModel.findOne({ _id: driverId, role: 'driver' });
+        if (!driver)
             throw new common_1.UnauthorizedException('Driver not found!');
+        if (!dto.method || !dto.accountNumber || !dto.accountHolderName)
+            throw new common_1.BadRequestException('Required fields missing!');
+        if (dto.method === 'bank' && !dto.ifsc)
+            throw new common_1.BadRequestException('IFSC required for bank payout.');
+        if (dto.isDefault) {
+            await this.driverPayoutModel.updateMany({ driverId, isDefault: true }, { isDefault: false });
         }
-        const { method, accountNumber, ifsc, accountHolderName, nickname, isDefault } = createDriverPayoutDto;
-        if (!method || !accountNumber || !accountHolderName) {
-            throw new common_1.BadRequestException('Method, account number, and account holder name are required!');
-        }
-        if (method === 'bank' && !ifsc) {
-            throw new common_1.BadRequestException('IFSC code is required for BANK payout method.');
-        }
-        if (isDefault) {
-            await this.DriverPayOutModel.updateMany({ driverId, isDefault: true }, { isDefault: false });
-        }
-        const payoutAccount = new this.DriverPayOutModel({
+        const payout = await new this.driverPayoutModel({
             driverId,
-            method,
-            accountNumber,
-            ifsc: ifsc || null,
-            accountHolderName,
-            nickname: nickname || null,
-            isDefault: isDefault || false,
+            method: dto.method,
+            accountNumber: dto.accountNumber,
+            ifsc: dto.ifsc || null,
+            accountHolderName: dto.accountHolderName,
+            nickname: dto.nickname || null,
+            isDefault: dto.isDefault || false,
             isActive: true,
         });
-        await payoutAccount.save();
+        await payout.save();
         if (!Array.isArray(driver.payoutAccounts)) {
             driver.payoutAccounts = [];
         }
-        driver.payoutAccounts.push(payoutAccount._id);
+        const driverPaymentInfo = await new this.driverPaymentModel({
+            driverId,
+            payoutMethod: payout._id
+        });
+        await driverPaymentInfo.save();
+        driver.payoutAccounts.push(payout._id);
         await driver.save();
-        return {
-            success: true,
-            message: 'Driver payout account created successfully',
-            data: payoutAccount,
-        };
+        return { success: true, message: 'Driver payout account created', data: payout };
     }
-    async updateDriverEarnings(rideId, driverId, amount) {
-        const session = await this.earningModel.db.startSession();
-        session.startTransaction();
-        try {
-            const earnings = await this.earningModel.findOne({ driverId }).session(session);
-            if (!earnings) {
-                throw new Error('Earnings document not found for driver');
-            }
-            earnings.totalEarnings += amount;
-            earnings.availableBalance += amount;
-            earnings.totalRides += 1;
-            await earnings.save({ session });
-            await session.commitTransaction();
-            session.endSession();
-            return earnings;
-        }
-        catch (error) {
-            await session.abortTransaction();
-            session.endSession();
-            throw new common_1.InternalServerErrorException('Failed to update driver earnings: ' + error.message);
-        }
-    }
-    async getDriverEarnings(req) {
-        const driverId = req.user?._id;
-        if (!driverId) {
-            throw new common_1.UnauthorizedException('Driver not authenticated');
-        }
-        const driver = await this.userModel.findById(driverId);
-        if (!driver) {
-            throw new common_1.NotFoundException('Driver not found');
-        }
-        if (!driver.earnings) {
-            throw new common_1.NotFoundException('Earnings record not found for this driver');
-        }
-        const earnings = await this.earningModel.findById(driver.earnings);
-        if (!earnings) {
-            throw new common_1.NotFoundException('Earnings details not found');
-        }
-        return {
-            success: true,
-            message: 'Driver earnings retrieved successfully',
-            data: earnings
-        };
+    async recordDriverEarning(rideId, driverId, userId, paymentId, amount) {
+        const earning = await this.earningModel.create({
+            rideId,
+            driverId,
+            userId,
+            paymentId,
+            amount,
+            status: driver_earnings_schema_1.EarningsStatus.PAID,
+        });
+        return earning;
     }
     async getDriverEarningsHistory(req, page = 1, limit = 10) {
         const driverId = req.user?._id;
-        if (!driverId) {
+        if (!driverId)
             throw new common_1.UnauthorizedException('Driver not authenticated');
-        }
         const skip = (page - 1) * limit;
-        const earningsHistory = await this.earningModel
+        const earnings = await this.earningModel
             .find({ driverId })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('rideId', 'pickupLocation dropoffLocation fare status');
+            .populate('rideId', 'pickupLocation dropoffLocation TotalFare status');
         const total = await this.earningModel.countDocuments({ driverId });
         return {
             success: true,
             message: 'Earnings history retrieved successfully',
             data: {
-                earnings: earningsHistory,
-                pagination: {
-                    currentPage: page,
-                    totalPages: Math.ceil(total / limit),
-                    totalItems: total,
-                    itemsPerPage: limit
-                }
-            }
+                earnings,
+                pagination: { currentPage: page, totalPages: Math.ceil(total / limit), totalItems: total, itemsPerPage: limit },
+            },
+        };
+    }
+    async getDriverEarnings(req) {
+        const driverId = req.user?._id;
+        if (!driverId)
+            throw new common_1.UnauthorizedException('Driver not authenticated');
+        const earnings = await this.earningModel.aggregate([
+            { $match: { driverId: driverId } },
+            { $group: { _id: '$driverId', totalAmount: { $sum: '$amount' }, totalRides: { $sum: 1 } } },
+        ]);
+        return {
+            success: true,
+            message: 'Driver earnings summary',
+            data: earnings[0] || { totalAmount: 0, totalRides: 0 },
         };
     }
 };
@@ -220,8 +167,10 @@ exports.DriverService = DriverService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
     __param(1, (0, mongoose_1.InjectModel)(user_schema_1.VehicleDetails.name)),
     __param(2, (0, mongoose_1.InjectModel)(payout_schema_1.DriverPayout.name)),
-    __param(3, (0, mongoose_1.InjectModel)(driver_earnings_schema_1.DriverEarnings.name)),
+    __param(3, (0, mongoose_1.InjectModel)(driver_earnings_schema_1.DriverEarning.name)),
+    __param(4, (0, mongoose_1.InjectModel)(DriverPaymentInfo_schema_1.DriverPayment.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model])

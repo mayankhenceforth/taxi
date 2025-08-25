@@ -61,7 +61,7 @@ export class PaymentController {
       "http://localhost:3000/stripe/success",
       "http://localhost:3000/stripe/cancel",
       paymentAmount,
-      associatedRideId
+       associatedRideId,
     );
   }
 
@@ -145,7 +145,7 @@ export class PaymentController {
     @Param("intentId") intentId: string,
     @Param("rideId") rideId: string,
   ) {
-    return this.paymentService.handleRefund(intentId, rideId);
+    return this.paymentService.handleRefund(rideId);
   }
 
   @Post("create-subscription")
