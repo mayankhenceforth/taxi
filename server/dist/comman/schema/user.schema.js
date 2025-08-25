@@ -193,15 +193,12 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "location", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: exports.vehicleDetailsSchema }),
-    __metadata("design:type", VehicleDetails)
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: VehicleDetails.name, required: function () { return this.role === "driver"; }, }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
 ], User.prototype, "vehicleDetails", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({
-        type: exports.DriverLicenseSchema,
-        required: function () { return this.role === "driver"; },
-    }),
-    __metadata("design:type", DriverLicense)
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: DriverLicense.name, required: function () { return this.role === "driver"; }, }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
 ], User.prototype, "driverLicense", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true, default: false }),

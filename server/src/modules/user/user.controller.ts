@@ -39,7 +39,10 @@ export class UserController {
   @ApiResponse({ status: 400, description: 'Invalid OTP.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async otpVerification(@Body() dto: VerifyOtpDto, @Query('id') id: string) {
+    console.log("userId:",id)
     const userId = new mongoose.Types.ObjectId(id)
+
+    console.log("user Mogodb id:",userId)
     return this.userService.userVerifiedUsingOtp(userId, dto.otp)
   }
 

@@ -48,8 +48,8 @@ export declare class User {
         type: string;
         coordinates: number[];
     };
-    vehicleDetails?: VehicleDetails;
-    driverLicense?: DriverLicense;
+    vehicleDetails?: Types.ObjectId;
+    driverLicense?: Types.ObjectId;
     isVerified: boolean;
     payoutAccounts?: Types.ObjectId[];
     earnings?: Types.ObjectId;

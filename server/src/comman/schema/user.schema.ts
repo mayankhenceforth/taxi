@@ -47,15 +47,15 @@ export const DriverLicenseSchema = SchemaFactory.createForClass(DriverLicense);
 
 @Schema()
 export class VehicleDetails {
-   @Prop({
-    required: true,
-    unique: true,
-    trim: true,
-    type: String,
-    match: [/^[A-Za-z0-9-]+$/, "Invalid number plate format"], // Allow both cases
-    uppercase: true, // Still convert to uppercase for consistency
-})
-numberPlate: string;
+    @Prop({
+        required: true,
+        unique: true,
+        trim: true,
+        type: String,
+        match: [/^[A-Za-z0-9-]+$/, "Invalid number plate format"], // Allow both cases
+        uppercase: true, // Still convert to uppercase for consistency
+    })
+    numberPlate: string;
 
     @Prop({
         required: true,
@@ -119,7 +119,7 @@ export class User {
     @Prop({ required: true, default: "user" })
     role: "admin" | "user" | "super-admin" | "driver";
 
-     @Prop({
+    @Prop({
         type: {
             type: String,
             enum: ['Point'],
@@ -136,14 +136,11 @@ export class User {
         coordinates: number[];
     };
 
-   @Prop({ type: vehicleDetailsSchema })
-vehicleDetails?: VehicleDetails;
+    @Prop({ type: Types.ObjectId, ref: VehicleDetails.name, required: function () { return this.role === "driver"; }, })
+    vehicleDetails?: Types.ObjectId;
 
-@Prop({
-  type: DriverLicenseSchema,
-  required: function () { return this.role === "driver"; },
-})
-driverLicense?: DriverLicense;
+    @Prop({ type: Types.ObjectId, ref: DriverLicense.name, required: function () { return this.role === "driver"; }, })
+    driverLicense?: Types.ObjectId;
 
     @Prop({ required: true, default: false })
     isVerified: boolean;
@@ -153,14 +150,14 @@ driverLicense?: DriverLicense;
 
     @Prop({ type: Types.ObjectId, ref: DriverEarnings.name })
     earnings?: Types.ObjectId;
-    @Prop({ 
-        default:0,
+    @Prop({
+        default: 0,
         required: function () { return this.role === "driver"; },
     })
     rating?: number;
 
-    @Prop({enum:[true ,false]})
-    status:true
+    @Prop({ enum: [true, false] })
+    status: true
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -173,9 +170,9 @@ export class PendingUser {
     @Prop({ required: true, trim: true })
     name: string;
 
-    @Prop({ required: true, unique: true})
+    @Prop({ required: true, unique: true })
     contactNumber: string;
-    
+
     @Prop({
         required: false,
         unique: false,
@@ -206,15 +203,15 @@ export class PendingUser {
     otpExpiresAt?: Date;
 
     @Prop({ type: vehicleDetailsSchema })
-vehicleDetails?: VehicleDetails;
+    vehicleDetails?: VehicleDetails;
 
-@Prop({
-  type: DriverLicenseSchema,
-  required: function () { return this.role === "driver"; },
-})
-driverLicense?: DriverLicense;
+    @Prop({
+        type: DriverLicenseSchema,
+        required: function () { return this.role === "driver"; },
+    })
+    driverLicense?: DriverLicense;
 
-     @Prop({
+    @Prop({
         type: {
             type: String,
             enum: ['Point'],

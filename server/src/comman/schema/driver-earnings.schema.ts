@@ -30,32 +30,13 @@ export class DriverEarnings {
   @Prop({ required: true })
   amount: number;
 
-  @Prop({ required: true })
-  description: string;
 
   @Prop({ enum: EarningsStatus, default: EarningsStatus.PENDING })
   status: EarningsStatus;
 
-  @Prop()
-  processedAt?: Date;
 
-  @Prop()
-  paidAt?: Date;
 
-  @Prop()
-  referenceId?: string;
-
-  @Prop({ default: 0 })
-  totalEarnings: number;
-
-  @Prop({ default: 0 })
-  totalRides: number;
-
-  @Prop({ default: 0 })
-  availableBalance: number;
-
-  @Prop({ default: 0 })
-  paidBalance: number;
+  
 }
 
 export const DriverEarningsSchema = SchemaFactory.createForClass(DriverEarnings);

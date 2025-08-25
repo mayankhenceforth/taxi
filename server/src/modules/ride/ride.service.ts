@@ -73,6 +73,7 @@ export class RideService {
   }
 
   private async getNearbyDrivers(coordinates: [number, number], radius: number, vehicleType: string) {
+    console.log("location",coordinates)
     const drivers = await this.userModel.aggregate([
       {
         $geoNear: {
@@ -660,13 +661,12 @@ export class RideService {
     if (ride.paymentStatus !== 'paid') throw new BadRequestException('Ride not complete, payment not completed');
     if (ride.status === 'cancelled') throw new BadRequestException('Ride cannot be completed as it was cancelled');
 
-    const session = await this.rideModel.db.startSession();
-    session.startTransaction();
+   
 
     try {
       ride.status = 'completed';
       ride.completedAt = new Date();
-      await ride.save({ session });
+      await ride.save();
 
       const driverEarnings = await this.driverService.updateDriverEarnings(
         ride._id as Types.ObjectId,
@@ -674,10 +674,6 @@ export class RideService {
         ride.TotalFare * 0.8,
       );
 
-      await session.commitTransaction();
-      session.endSession();
-
-      // Generate and send invoice email
       let pdfBuffer: Buffer;
       try {
         pdfBuffer = await this.invoiceService.generateInvoice(rideId);
@@ -714,8 +710,7 @@ export class RideService {
         earnings: driverEarnings,
       });
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
+      
       throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
     }
   }

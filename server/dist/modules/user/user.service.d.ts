@@ -419,8 +419,8 @@ export declare class UserService {
                 type: string;
                 coordinates: number[];
             } & Location;
-            vehicleDetails?: VehicleDetails;
-            driverLicense?: DriverLicense;
+            vehicleDetails?: mongoose.Types.ObjectId;
+            driverLicense?: mongoose.Types.ObjectId;
             isVerified: boolean;
             payoutAccounts?: mongoose.Types.ObjectId[];
             earnings?: mongoose.Types.ObjectId;
@@ -804,8 +804,8 @@ export declare class UserService {
                 type: string;
                 coordinates: number[];
             } & Location;
-            vehicleDetails?: VehicleDetails;
-            driverLicense?: DriverLicense;
+            vehicleDetails?: mongoose.Types.ObjectId;
+            driverLicense?: mongoose.Types.ObjectId;
             isVerified: boolean;
             payoutAccounts?: mongoose.Types.ObjectId[];
             earnings?: mongoose.Types.ObjectId;

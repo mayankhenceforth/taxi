@@ -147,7 +147,7 @@ export class UserService {
     pendingUser.otpExpiresAt = otpExpiresAt;
     await pendingUser.save();
 
-    await this.smsService.sendVerificationOtpSms(pendingUser.contactNumber, otp);
+    await this.smsService.sendVerificationOtpSms(otp);
 
     return {
       message: 'OTP sent successfully',
@@ -156,6 +156,9 @@ export class UserService {
   }
 
   async userVerifiedUsingOtp(userId: mongoose.Types.ObjectId, otp: number) {
+    console.log("user vefification")
+   
+
   const pendingUser = await this.pendingUserModel.findById(userId).exec();
   if (!pendingUser) throw new BadRequestException('Pending user not found');
 
@@ -180,6 +183,8 @@ export class UserService {
 
   if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
     // Create DriverLicense and VehicleDetails documents if not already existing
+        console.log("vehicale",pendingUser.vehicleDetails.model)
+            console.log("License",pendingUser.driverLicense.licenseNumber)
     const [existingLicense, existingVehicle] = await Promise.all([
       this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
       this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
@@ -201,6 +206,7 @@ export class UserService {
     if (existingVehicle) {
       userData.vehicleDetails = existingVehicle._id;
     } else {
+      console.log("vehicale",pendingUser.vehicleDetails.model)
       const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
         numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
         type: pendingUser.vehicleDetails.type,

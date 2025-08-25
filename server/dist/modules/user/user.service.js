@@ -129,13 +129,14 @@ let UserService = class UserService {
         pendingUser.otp = otp;
         pendingUser.otpExpiresAt = otpExpiresAt;
         await pendingUser.save();
-        await this.smsService.sendVerificationOtpSms(pendingUser.contactNumber, otp);
+        await this.smsService.sendVerificationOtpSms(otp);
         return {
             message: 'OTP sent successfully',
             otpSentTo: pendingUser.contactNumber,
         };
     }
     async userVerifiedUsingOtp(userId, otp) {
+        console.log("user vefification");
         const pendingUser = await this.pendingUserModel.findById(userId).exec();
         if (!pendingUser)
             throw new common_1.BadRequestException('Pending user not found');
@@ -156,6 +157,8 @@ let UserService = class UserService {
             location: pendingUser.location,
         };
         if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
+            console.log("vehicale", pendingUser.vehicleDetails.model);
+            console.log("License", pendingUser.driverLicense.licenseNumber);
             const [existingLicense, existingVehicle] = await Promise.all([
                 this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
                 this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
@@ -177,6 +180,7 @@ let UserService = class UserService {
                 userData.vehicleDetails = existingVehicle._id;
             }
             else {
+                console.log("vehicale", pendingUser.vehicleDetails.model);
                 const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
                     numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
                     type: pendingUser.vehicleDetails.type,

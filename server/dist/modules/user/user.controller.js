@@ -34,7 +34,9 @@ let UserController = class UserController {
         return this.userService.sendUserVerificationOtp(userId);
     }
     async otpVerification(dto, id) {
+        console.log("userId:", id);
         const userId = new mongoose_1.default.Types.ObjectId(id);
+        console.log("user Mogodb id:", userId);
         return this.userService.userVerifiedUsingOtp(userId, dto.otp);
     }
     async login(logindto) {

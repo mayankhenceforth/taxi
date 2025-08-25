@@ -74,6 +74,7 @@ let RideService = RideService_1 = class RideService {
         return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
     async getNearbyDrivers(coordinates, radius, vehicleType) {
+        console.log("location", coordinates);
         const drivers = await this.userModel.aggregate([
             {
                 $geoNear: {

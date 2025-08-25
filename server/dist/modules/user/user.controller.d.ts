@@ -409,8 +409,8 @@ export declare class UserController {
                 type: string;
                 coordinates: number[];
             } & Location;
-            vehicleDetails?: import("../../comman/schema/user.schema").VehicleDetails;
-            driverLicense?: import("../../comman/schema/user.schema").DriverLicense;
+            vehicleDetails?: mongoose.Types.ObjectId;
+            driverLicense?: mongoose.Types.ObjectId;
             isVerified: boolean;
             payoutAccounts?: mongoose.Types.ObjectId[];
             earnings?: mongoose.Types.ObjectId;
@@ -794,8 +794,8 @@ export declare class UserController {
                 type: string;
                 coordinates: number[];
             } & Location;
-            vehicleDetails?: import("../../comman/schema/user.schema").VehicleDetails;
-            driverLicense?: import("../../comman/schema/user.schema").DriverLicense;
+            vehicleDetails?: mongoose.Types.ObjectId;
+            driverLicense?: mongoose.Types.ObjectId;
             isVerified: boolean;
             payoutAccounts?: mongoose.Types.ObjectId[];
             earnings?: mongoose.Types.ObjectId;
