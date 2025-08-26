@@ -25,4 +25,5 @@ export declare class InvoiceService {
     NewRidesReport(filter: string): Promise<Buffer>;
     private generateReportData;
     private generateReportHtml;
+    generateDriverInvoice(driverId: string, rideIds: string[]): Promise<Buffer>;
 }

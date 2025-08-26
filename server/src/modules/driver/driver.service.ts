@@ -7,6 +7,7 @@ import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
 import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
 import { DriverEarning, DriverEarningDocument, EarningsStatus } from 'src/comman/schema/driver-earnings.schema';
 import { DriverPayment, DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
+import { Ride, RideDocument } from 'src/comman/schema/ride.schema';
 
 @Injectable()
 export class DriverService {
@@ -15,7 +16,9 @@ export class DriverService {
     @InjectModel(VehicleDetails.name) private readonly vehicleDetailsModel: Model<VehicleDetailsDocument>,
     @InjectModel(DriverPayout.name) private readonly driverPayoutModel: Model<DriverPayoutDocument>,
     @InjectModel(DriverEarning.name) private readonly earningModel: Model<DriverEarningDocument>,
-    @InjectModel(DriverPayment.name) private  driverPaymentModel: Model<DriverPaymentDocument>
+    @InjectModel(DriverPayment.name) private  driverPaymentModel: Model<DriverPaymentDocument>,
+    @InjectModel(Ride.name) private readonly rideModel:Model<RideDocument>,
+     @InjectModel(DriverEarning.name) private readonly driverEarningModel:Model<DriverEarningDocument>,
   ) { }
 
   /** Setup driver account with vehicle and initial earnings */
@@ -123,6 +126,7 @@ export class DriverService {
     userId: Types.ObjectId,
     paymentId: Types.ObjectId | string,
     amount: number,
+    rideStatus:string
   ) {
     const earning = await this.earningModel.create({
       rideId,
@@ -131,8 +135,44 @@ export class DriverService {
       paymentId,
       amount,
       status: EarningsStatus.PAID,
+      rideStatus
     });
     return earning;
+  }
+
+   async payDriver(driverId: string, rides: RideDocument[], payoutDetails: any) {
+    const totalEarnings = rides.reduce((sum, r) => sum + (r.driverEarnings || 0), 0);
+
+    // Update driver payment record
+    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+      { driverId },
+      {
+        $set: {
+          payoutMethod: payoutDetails.method,
+          payoutAccount: payoutDetails.accountNumber,
+          status: 'paid',
+          lastPayoutAmount: totalEarnings,
+          lastPayoutDate: new Date(),
+          payoutTransactionId: new Types.ObjectId().toHexString(),
+          remarks: 'Payout processed successfully',
+        },
+        $inc: { totalEarnings },
+      },
+      { upsert: true, new: true },
+    );
+
+    // Update rides and earnings as paid
+    await this.driverEarningModel.updateMany(
+      { driverId, driverPaymentStatus: 'unpaid' },
+      { $set: { driverPaymentStatus: 'paid', updatedAt: new Date() } },
+    );
+
+    await this.rideModel.updateMany(
+      { _id: { $in: rides.map(r => r._id) } },
+      { $set: { driverPaymentStatus: 'paid' } },
+    );
+
+    return driverPayment;
   }
 
 

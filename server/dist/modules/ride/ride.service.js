@@ -459,6 +459,9 @@ let RideService = RideService_1 = class RideService {
         const ride = await this.rideModel.findById(rideId);
         if (!ride)
             throw new common_1.NotFoundException('Ride not found');
+        if (!ride.driver) {
+            throw new common_1.NotFoundException("ride Driver not found");
+        }
         if (ride.status === 'completed' || ride.status === 'cancelled')
             throw new common_1.BadRequestException('Ride cannot be cancelled at this stage');
         const isDriver = ride.driver?.toString() === user._id.toString();
@@ -469,6 +472,28 @@ let RideService = RideService_1 = class RideService {
         ride.cancelReason = reason;
         ride.cancelledBy = isDriver ? 'Driver' : 'User';
         ride.cancelledAt = new Date();
+        await ride.save();
+        const response = await this.paymentService.handleRefund(rideId);
+        if (!response) {
+            throw new common_1.BadRequestException("Payment refund not created");
+        }
+        await this.driverService.recordDriverEarning(rideId, ride.driver?._id, ride.bookedBy?._id, String(ride.paymentId), response.driverEarningAmount, ride.status);
+        const driverPayment = await this.driverPaymentModel.findOneAndUpdate({ driverId: ride.driver._id }, {
+            $inc: {
+                totalEarnings: ride.driverEarnings,
+                balance: ride.driverEarnings,
+            },
+        }, { new: true, upsert: true });
+        const gstRates = {
+            bike: parseFloat(process.env.RIDE_BIKE_GST ?? '12'),
+            car: parseFloat(process.env.RIDE_CAR_GST ?? '16'),
+        };
+        const gstPercent = gstRates[ride.vehicleType.toLowerCase()];
+        ride.driverEarnings = response.driverEarningAmount;
+        ride.platformEarnings = response.plateformEarning;
+        let subTotal = (response.driverEarningAmount + response.plateformEarning);
+        const gstAmount = (subTotal) * (gstPercent / 100);
+        ride.TotalFare = subTotal + gstAmount;
         await ride.save();
         this.clearRideTimers(rideId);
         const recipientId = isDriver ? ride.bookedBy.toString() : ride.driver?.toString();
@@ -491,7 +516,7 @@ let RideService = RideService_1 = class RideService {
         const totalAmount = ride.TotalFare;
         const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
         const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
-        const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, rideId, totalAmount * 100);
+        const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount, rideId);
         return new api_response_1.default(true, 'Checkout session created', common_1.HttpStatus.OK, { url: session });
     }
     async confirmPayment(rideId) {
@@ -549,7 +574,7 @@ let RideService = RideService_1 = class RideService {
         if (!mongoose_1.Types.ObjectId.isValid(rideId)) {
             throw new common_1.BadRequestException('Invalid rideId');
         }
-        const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+        const ride = await this.rideModel.findById(rideId).populate('bookedBy driver paymentId');
         if (!ride)
             throw new common_1.NotFoundException('Ride not found');
         const user = request.user;
@@ -584,7 +609,7 @@ let RideService = RideService_1 = class RideService {
                 });
             }
             const paymentId = ride.paymentId ? ride.paymentId : new mongoose_1.Types.ObjectId();
-            await this.driverService.recordDriverEarning(String(ride._id), ride.driver._id, ride.bookedBy._id, paymentId, ride.driverEarnings);
+            await this.driverService.recordDriverEarning(String(ride._id), ride.driver._id, ride.bookedBy._id, paymentId._id, ride.driverEarnings, ride.status);
             const driverPayment = await this.driverPaymentModel.findOneAndUpdate({ driverId: ride.driver._id }, {
                 $inc: {
                     totalEarnings: ride.driverEarnings,

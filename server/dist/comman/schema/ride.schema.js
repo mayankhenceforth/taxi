@@ -26,6 +26,7 @@ let Ride = class Ride {
     fareBreakdown;
     status;
     paymentStatus;
+    checkoutSessionId;
     paymentId;
     pickupLocation;
     dropoffLocation;
@@ -116,6 +117,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Ride.prototype, "paymentStatus", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Ride.prototype, "checkoutSessionId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.default.Schema.Types.ObjectId, ref: 'Payment' }),
     __metadata("design:type", mongoose_2.Types.ObjectId)

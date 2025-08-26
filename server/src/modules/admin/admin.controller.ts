@@ -322,4 +322,22 @@ export class AdminController {
   processRefund(@Param('rideId') rideId: string) {
     return this.adminService.processRefund(rideId);
   }
+
+  
+@Post("pay_driver/:driverId")
+@Roles(Role.Admin, Role.SuperAdmin)
+@ApiOperation({ 
+  summary: 'Pay driver earnings', 
+  description: 'Initiates a payout to a driver for their completed rides. Requires Admin or SuperAdmin role.' 
+})
+@ApiResponse({ status: 200, description: 'Driver paid successfully' })
+@ApiResponse({ status: 400, description: 'Bad request - Payment cannot be processed' })
+@ApiResponse({ status: 404, description: 'Driver not found' })
+@ApiResponse({ status: 500, description: 'Internal server error - Payment gateway issue' })
+payDriver() {
+  return this.adminService.payAllDrivers();
+}
+
+
+
 }

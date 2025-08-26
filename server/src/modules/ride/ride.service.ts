@@ -46,7 +46,7 @@ export class RideService {
     @InjectModel(RideRating.name) private readonly rideRatingModel: Model<RideRatingDocument>,
     @InjectModel(DriverPayment.name) private readonly driverPaymentModel: Model<DriverPaymentDocument>,
     @InjectModel(DriverEarning.name) private readonly driverEarningModel: Model<DriverEarningDocument>,
-      @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
@@ -562,8 +562,12 @@ export class RideService {
     const user = request.user;
     if (!user) throw new UnauthorizedException('Unauthorized');
 
-    const ride = await this.rideModel.findById(rideId);
+    const ride = await this.rideModel.findById(rideId)
     if (!ride) throw new NotFoundException('Ride not found');
+
+    if(!ride.driver){
+      throw new NotFoundException("ride Driver not found")
+    }
     if (ride.status === 'completed' || ride.status === 'cancelled')
       throw new BadRequestException('Ride cannot be cancelled at this stage');
 
@@ -575,8 +579,49 @@ export class RideService {
     ride.cancelReason = reason;
     ride.cancelledBy = isDriver ? 'Driver' : 'User';
     ride.cancelledAt = new Date();
+
     await ride.save();
 
+    const response = await this.paymentService.handleRefund(rideId)
+    if (!response) {
+      throw new BadRequestException("Payment refund not created")
+    }
+
+    await this.driverService.recordDriverEarning(
+      rideId,
+      ride.driver?._id,
+      ride.bookedBy?._id,
+      String(ride.paymentId),
+      response.driverEarningAmount,
+      ride.status
+    );
+
+    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+      { driverId: ride.driver._id },
+      {
+        $inc: {
+          totalEarnings: ride.driverEarnings,
+          balance: ride.driverEarnings,
+        },
+      },
+      { new: true, upsert: true }
+    );
+  const gstRates = {
+      bike: parseFloat(process.env.RIDE_BIKE_GST ?? '12'),
+      car: parseFloat(process.env.RIDE_CAR_GST ?? '16'),
+    };
+
+     const gstPercent = gstRates[ride.vehicleType.toLowerCase() as keyof typeof gstRates];
+    
+   
+    ride.driverEarnings = response.driverEarningAmount
+    ride.platformEarnings= response.plateformEarning
+    let subTotal = (response.driverEarningAmount+response.plateformEarning)
+    const gstAmount = (subTotal) * (gstPercent / 100);
+    ride.TotalFare =subTotal+gstAmount
+    await ride.save()
+
+   
     this.clearRideTimers(rideId);
 
     const recipientId = isDriver ? ride.bookedBy.toString() : ride.driver?.toString();
@@ -605,159 +650,160 @@ export class RideService {
     const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
     const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
 
-    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, rideId,totalAmount * 100);
+    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount, rideId);
 
     return new ApiResponse(true, 'Checkout session created', HttpStatus.OK, { url: session });
   }
 
   async confirmPayment(rideId: string): Promise<Buffer> {
-  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-  if (!ride) throw new NotFoundException('Ride not found');
+    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+    if (!ride) throw new NotFoundException('Ride not found');
 
-  // Update Payment document
-  const payment = await this.paymentModel.findOne({ rideId });
-  if (!payment) throw new NotFoundException('Payment document not found');
+    // Update Payment document
+    const payment = await this.paymentModel.findOne({ rideId });
+    if (!payment) throw new NotFoundException('Payment document not found');
 
-  ride.paymentStatus = 'paid';
-  ride.paidAt = new Date();
-  await ride.save();
-
-  payment.status = 'paid';
-  await payment.save();
-
-  const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-  if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
-
-  if (ride.invoiceUrl) {
-    const oldPublicId = ride.invoiceUrl.split('/upload/')[1]?.replace(/\.[^/.]+$/, '');
-    await this.cloudinaryService.deleteFile(oldPublicId).catch((error) => {
-      this.logger.error(`Failed to delete old invoice from Cloudinary: ${error.message}`);
-    });
-  }
-
-  const uploadResult = await this.cloudinaryService.uploadFile({
-    buffer: pdfBuffer,
-    originalname: `invoice-${rideId}.pdf`,
-  });
-
-  if (!uploadResult) throw new BadRequestException('Failed to upload invoice to cloud');
-
-  const baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
-  ride.invoiceUrl = baseUrl;
-  await ride.save();
-
-  this.logger.log(`Invoice uploaded to Cloudinary: ${baseUrl}`);
-
-  this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
-    rideId: ride._id,
-    message: 'Payment confirmed successfully',
-    invoiceUrl: baseUrl,
-  });
-
-  // Send invoice email
-  try {
-    const email = 'mayank8355@gmail.com'; // Use bookedBy email
-    const subject = 'Ride Payment Confirmed - Your Invoice';
-    await this.mailService.sendPdf({ email, subject, pdfBuffer });
-    this.logger.log(`Invoice email sent successfully to ${email}`);
-  } catch (error) {
-    this.logger.error(`Failed to send invoice email: ${error.message}`);
-    this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
-      rideId: ride._id,
-      message: 'Failed to send invoice email. Please contact support.',
-    });
-  }
-
-  return pdfBuffer;
-}
-
- async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
-  if (!Types.ObjectId.isValid(rideId)) {
-    throw new BadRequestException('Invalid rideId');
-  }
-
-  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-  if (!ride) throw new NotFoundException('Ride not found');
-
-  const user = request.user;
-  if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString()) {
-    throw new UnauthorizedException('Not authorized');
-  }
-
-  if (ride.paymentStatus !== 'paid') {
-    throw new BadRequestException('Ride not complete, payment not completed');
-  }
-  if (ride.status === 'cancelled') {
-    throw new BadRequestException('Ride cannot be completed as it was cancelled');
-  }
-
-  try {
-
-    ride.status = 'completed';
-    ride.completedAt = new Date();
+    ride.paymentStatus = 'paid';
+    ride.paidAt = new Date();
     await ride.save();
 
+    payment.status = 'paid';
+    await payment.save();
+
+    const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+    if (!pdfBuffer) throw new BadRequestException('Failed to generate invoice');
+
+    if (ride.invoiceUrl) {
+      const oldPublicId = ride.invoiceUrl.split('/upload/')[1]?.replace(/\.[^/.]+$/, '');
+      await this.cloudinaryService.deleteFile(oldPublicId).catch((error) => {
+        this.logger.error(`Failed to delete old invoice from Cloudinary: ${error.message}`);
+      });
+    }
+
+    const uploadResult = await this.cloudinaryService.uploadFile({
+      buffer: pdfBuffer,
+      originalname: `invoice-${rideId}.pdf`,
+    });
+
+    if (!uploadResult) throw new BadRequestException('Failed to upload invoice to cloud');
+
+    const baseUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment:false/');
+    ride.invoiceUrl = baseUrl;
+    await ride.save();
+
+    this.logger.log(`Invoice uploaded to Cloudinary: ${baseUrl}`);
+
+    this.rideGateway.sendRidePaymentConfirmed(ride.bookedBy._id.toString(), {
+      rideId: ride._id,
+      message: 'Payment confirmed successfully',
+      invoiceUrl: baseUrl,
+    });
+
+    // Send invoice email
     try {
-      const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-      if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
-        throw new BadRequestException('PDF buffer not created');
-      }
-
-      const email = 'mayank8355@gmail.com';
-      const subject = 'Ride Completed - Your Invoice';
+      const email = 'mayank8355@gmail.com'; // Use bookedBy email
+      const subject = 'Ride Payment Confirmed - Your Invoice';
       await this.mailService.sendPdf({ email, subject, pdfBuffer });
-
       this.logger.log(`Invoice email sent successfully to ${email}`);
     } catch (error) {
-      this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
+      this.logger.error(`Failed to send invoice email: ${error.message}`);
       this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
         rideId: ride._id,
         message: 'Failed to send invoice email. Please contact support.',
       });
     }
 
-    const paymentId = ride.paymentId ? ride.paymentId : new Types.ObjectId();
-    await this.driverService.recordDriverEarning(
-      String(ride._id),
-      ride.driver._id,
-      ride.bookedBy._id,
-      paymentId,
-      ride.driverEarnings
-    );
+    return pdfBuffer;
+  }
 
-    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
-      { driverId: ride.driver._id },
-      {
-        $inc: {
-          totalEarnings: ride.driverEarnings,
-          balance: ride.driverEarnings,
-        },
-      },
-      { new: true, upsert: true } 
-    );
-
-    this.logger.log(`Driver payment updated: ${JSON.stringify(driverPayment)}`);
-
-
-    this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
-      rideId: ride._id,
-      message: 'Ride completed successfully',
-    });
-
-  
-    if (ride.driver) {
-      this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
-        rideId: ride._id,
-        message: 'Ride completed successfully',
-        earnings: ride.driverEarnings,
-      });
+  async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
+    if (!Types.ObjectId.isValid(rideId)) {
+      throw new BadRequestException('Invalid rideId');
     }
 
-    return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, { ride });
-  } catch (error) {
-    throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
+    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver paymentId');
+    if (!ride) throw new NotFoundException('Ride not found');
+
+    const user = request.user;
+    if (!user || !ride.driver || user._id.toString() !== ride.driver._id.toString()) {
+      throw new UnauthorizedException('Not authorized');
+    }
+
+    if (ride.paymentStatus !== 'paid') {
+      throw new BadRequestException('Ride not complete, payment not completed');
+    }
+    if (ride.status === 'cancelled') {
+      throw new BadRequestException('Ride cannot be completed as it was cancelled');
+    }
+
+    try {
+
+      ride.status = 'completed';
+      ride.completedAt = new Date();
+      await ride.save();
+
+      try {
+        const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+        if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
+          throw new BadRequestException('PDF buffer not created');
+        }
+
+        const email = 'mayank8355@gmail.com';
+        const subject = 'Ride Completed - Your Invoice';
+        await this.mailService.sendPdf({ email, subject, pdfBuffer });
+
+        this.logger.log(`Invoice email sent successfully to ${email}`);
+      } catch (error) {
+        this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
+        this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
+          rideId: ride._id,
+          message: 'Failed to send invoice email. Please contact support.',
+        });
+      }
+
+      const paymentId = ride.paymentId ? ride.paymentId : new Types.ObjectId();
+      await this.driverService.recordDriverEarning(
+        String(ride._id),
+        ride.driver._id,
+        ride.bookedBy._id,
+        paymentId._id,
+        ride.driverEarnings,
+        ride.status
+      );
+
+      const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+        { driverId: ride.driver._id },
+        {
+          $inc: {
+            totalEarnings: ride.driverEarnings,
+            balance: ride.driverEarnings,
+          },
+        },
+        { new: true, upsert: true }
+      );
+
+      this.logger.log(`Driver payment updated: ${JSON.stringify(driverPayment)}`);
+
+
+      this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
+        rideId: ride._id,
+        message: 'Ride completed successfully',
+      });
+
+
+      if (ride.driver) {
+        this.rideGateway.sendRideCompleted(ride.driver._id.toString(), {
+          rideId: ride._id,
+          message: 'Ride completed successfully',
+          earnings: ride.driverEarnings,
+        });
+      }
+
+      return new ApiResponse(true, 'Ride completed successfully!', HttpStatus.OK, { ride });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to complete ride: ' + error.message);
+    }
   }
-}
 
   async rideRating(rideId: string, request: any, ratingDto: RideRatingDto): Promise<ApiResponse<any>> {
 

@@ -1,9 +1,14 @@
 import { DriverService } from './driver.service';
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
 import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
+import { RideDocument } from 'src/comman/schema/ride.schema';
+import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
+import { Model } from 'mongoose';
 export declare class DriverController {
     private readonly driverService;
-    constructor(driverService: DriverService);
+    private rideModel;
+    private driverPayoutModel;
+    constructor(driverService: DriverService, rideModel: Model<RideDocument>, driverPayoutModel: Model<DriverPayoutDocument>);
     setupDriverAccount(req: any, setupDriverAccountDto: SetupDriverAccountDto): Promise<{
         message: string;
         data: (import("mongoose").Document<unknown, {}, import("../../comman/schema/user.schema").UserDocument, {}, {}> & import("../../comman/schema/user.schema").User & Document & {
@@ -15,7 +20,7 @@ export declare class DriverController {
     createPayoutAccount(req: any, createDriverPayoutDto: CreateDriverPayoutDto): Promise<{
         success: boolean;
         message: string;
-        data: import("mongoose").Document<unknown, {}, import("../../comman/schema/payout.schema").DriverPayoutDocument, {}, {}> & import("../../comman/schema/payout.schema").DriverPayout & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
+        data: import("mongoose").Document<unknown, {}, DriverPayoutDocument, {}, {}> & DriverPayout & import("mongoose").Document<unknown, any, any, Record<string, any>, {}> & Required<{
             _id: unknown;
         }> & {
             __v: number;

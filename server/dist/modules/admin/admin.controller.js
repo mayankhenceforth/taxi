@@ -92,6 +92,9 @@ let AdminController = class AdminController {
     processRefund(rideId) {
         return this.adminService.processRefund(rideId);
     }
+    payDriver() {
+        return this.adminService.payAllDrivers();
+    }
 };
 exports.AdminController = AdminController;
 __decorate([
@@ -409,6 +412,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], AdminController.prototype, "processRefund", null);
+__decorate([
+    (0, common_1.Post)("pay_driver/:driverId"),
+    (0, role_decorator_1.Roles)(role_enum_1.Role.Admin, role_enum_1.Role.SuperAdmin),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Pay driver earnings',
+        description: 'Initiates a payout to a driver for their completed rides. Requires Admin or SuperAdmin role.'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Driver paid successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request - Payment cannot be processed' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Driver not found' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Internal server error - Payment gateway issue' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AdminController.prototype, "payDriver", null);
 exports.AdminController = AdminController = __decorate([
     (0, common_1.Controller)('admin'),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),

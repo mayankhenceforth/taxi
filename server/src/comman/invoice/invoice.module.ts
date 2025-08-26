@@ -21,6 +21,7 @@ import { PdfGeneratorService } from './pdf.service';
     PdfGeneratorService,
     GeocodingService,
   ],
+  controllers:[InvoiceController],
   exports: [InvoiceService],
 })
 export class InvoiceModule {}

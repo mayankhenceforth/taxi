@@ -82,6 +82,9 @@ export class Ride {
   })
   paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
+  @Prop()
+  checkoutSessionId?: string
+
  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Payment' })
   paymentId?: Types.ObjectId;
 

@@ -26,6 +26,20 @@ export class DriverEarning {
 
   @Prop({ type: String, enum: EarningsStatus, default: EarningsStatus.PENDING })
   status: EarningsStatus;
+
+   @Prop({
+    required: true,
+    type: String,
+    enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
+    default: 'processing'
+  })
+  rideStatus: string;
+  
+  @Prop({
+     enum: ['unpaid', 'paid'],
+     default:"unpaid"
+  })
+  driverPaymentStatus:'unpaid' | 'paid'
 }
 
 export type DriverEarningDocument = DriverEarning & Document;

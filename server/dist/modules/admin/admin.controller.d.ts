@@ -45,4 +45,10 @@ export declare class AdminController {
         refundPercentage: number;
         paymentId: unknown;
     }>>;
+    payDriver(): Promise<{
+        success: boolean;
+        message: string;
+        statusCode: number;
+        data: any[];
+    }>;
 }

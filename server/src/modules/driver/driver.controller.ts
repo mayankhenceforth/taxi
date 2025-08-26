@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get, Query, Param, BadRequestException } from '@nestjs/common';
 import { DriverService } from './driver.service';
 import { SetupDriverAccountDto } from './dto/SetupDriverAccount.dto';
 import { CreateDriverPayoutDto } from './dto/CreatePaymentAccount.dto';
@@ -7,6 +7,10 @@ import { AuthGuards } from 'src/comman/guards/auth.guards';
 import { RoleGuards } from 'src/comman/guards/role.guards';
 import { Roles } from 'src/comman/decorator/role.decorator';
 import { Role } from 'src/comman/enums/role.enum';
+import { InjectModel } from '@nestjs/mongoose';
+import { Ride, RideDocument } from 'src/comman/schema/ride.schema';
+import { DriverPayout, DriverPayoutDocument } from 'src/comman/schema/payout.schema';
+import { Model } from 'mongoose';
 
 @ApiTags('Driver')
 @ApiBearerAuth()
@@ -14,7 +18,11 @@ import { Role } from 'src/comman/enums/role.enum';
 @UseGuards(AuthGuards, RoleGuards)
 @Controller('driver')
 export class DriverController {
-  constructor(private readonly driverService: DriverService) {}
+  constructor(private readonly driverService: DriverService,
+     @InjectModel(Ride.name) private rideModel: Model<RideDocument>,
+    @InjectModel(DriverPayout.name) private driverPayoutModel: Model<DriverPayoutDocument>,
+  
+  ) {}
 
   @Post('setup-account')
   @ApiOperation({ 
@@ -76,4 +84,26 @@ export class DriverController {
   ) {
     return this.driverService.getDriverEarningsHistory(req, page, limit);
   }
+
+  // @Post('pay-driver/:driverId')
+  // async payDriver(@Param('driverId') driverId: string) {
+  //   // Get unpaid rides
+  //   const rides = await this.rideModel.find({
+  //     driver: driverId,
+  //     status: { $in: ['completed', 'cancelled'] },
+  //     driverPaymentStatus: { $ne: 'paid' },
+  //   }).exec();
+
+  //   if (!rides.length) {
+  //     throw new BadRequestException('No unpaid rides found for this driver');
+  //   }
+
+  //   // Get driver payout account
+  //   const payoutDetails = await this.driverPayoutModel.findOne({ driverId, isActive: true, isDefault: true });
+  //   if (!payoutDetails) throw new BadRequestException('No payout account found');
+
+  //   const driverPayment = await this.driverService.payDriver(driverId, rides, payoutDetails);
+
+  //   return { success: true, driverPayment, ridesPaid: rides.length };
+  // }
 }

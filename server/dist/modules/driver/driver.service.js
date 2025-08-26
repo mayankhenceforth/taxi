@@ -20,18 +20,23 @@ const mongoose_2 = require("mongoose");
 const payout_schema_1 = require("../../comman/schema/payout.schema");
 const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
 const DriverPaymentInfo_schema_1 = require("../../comman/schema/DriverPaymentInfo.schema");
+const ride_schema_1 = require("../../comman/schema/ride.schema");
 let DriverService = class DriverService {
     userModel;
     vehicleDetailsModel;
     driverPayoutModel;
     earningModel;
     driverPaymentModel;
-    constructor(userModel, vehicleDetailsModel, driverPayoutModel, earningModel, driverPaymentModel) {
+    rideModel;
+    driverEarningModel;
+    constructor(userModel, vehicleDetailsModel, driverPayoutModel, earningModel, driverPaymentModel, rideModel, driverEarningModel) {
         this.userModel = userModel;
         this.vehicleDetailsModel = vehicleDetailsModel;
         this.driverPayoutModel = driverPayoutModel;
         this.earningModel = earningModel;
         this.driverPaymentModel = driverPaymentModel;
+        this.rideModel = rideModel;
+        this.driverEarningModel = driverEarningModel;
     }
     async setupDriverAccount(req, setupDriverAccountDto) {
         const driverId = req.user?._id;
@@ -114,7 +119,7 @@ let DriverService = class DriverService {
         await driver.save();
         return { success: true, message: 'Driver payout account created', data: payout };
     }
-    async recordDriverEarning(rideId, driverId, userId, paymentId, amount) {
+    async recordDriverEarning(rideId, driverId, userId, paymentId, amount, rideStatus) {
         const earning = await this.earningModel.create({
             rideId,
             driverId,
@@ -122,8 +127,27 @@ let DriverService = class DriverService {
             paymentId,
             amount,
             status: driver_earnings_schema_1.EarningsStatus.PAID,
+            rideStatus
         });
         return earning;
+    }
+    async payDriver(driverId, rides, payoutDetails) {
+        const totalEarnings = rides.reduce((sum, r) => sum + (r.driverEarnings || 0), 0);
+        const driverPayment = await this.driverPaymentModel.findOneAndUpdate({ driverId }, {
+            $set: {
+                payoutMethod: payoutDetails.method,
+                payoutAccount: payoutDetails.accountNumber,
+                status: 'paid',
+                lastPayoutAmount: totalEarnings,
+                lastPayoutDate: new Date(),
+                payoutTransactionId: new mongoose_2.Types.ObjectId().toHexString(),
+                remarks: 'Payout processed successfully',
+            },
+            $inc: { totalEarnings },
+        }, { upsert: true, new: true });
+        await this.driverEarningModel.updateMany({ driverId, driverPaymentStatus: 'unpaid' }, { $set: { driverPaymentStatus: 'paid', updatedAt: new Date() } });
+        await this.rideModel.updateMany({ _id: { $in: rides.map(r => r._id) } }, { $set: { driverPaymentStatus: 'paid' } });
+        return driverPayment;
     }
     async getDriverEarningsHistory(req, page = 1, limit = 10) {
         const driverId = req.user?._id;
@@ -169,7 +193,11 @@ exports.DriverService = DriverService = __decorate([
     __param(2, (0, mongoose_1.InjectModel)(payout_schema_1.DriverPayout.name)),
     __param(3, (0, mongoose_1.InjectModel)(driver_earnings_schema_1.DriverEarning.name)),
     __param(4, (0, mongoose_1.InjectModel)(DriverPaymentInfo_schema_1.DriverPayment.name)),
+    __param(5, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
+    __param(6, (0, mongoose_1.InjectModel)(driver_earnings_schema_1.DriverEarning.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model,

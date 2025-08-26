@@ -26,6 +26,7 @@ export declare class Ride {
     };
     status: string;
     paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
+    checkoutSessionId?: string;
     paymentId?: Types.ObjectId;
     pickupLocation: {
         type: string;

@@ -49,14 +49,17 @@ export class Payment {
   @Prop({ required: true, type: Number })
   amount: number;
 
+  @Prop()
+  currency: string
+
 //   @Prop({ required: true, enum: Object.values(PaymentType) })
 //   type: PaymentType;
 
 //   @Prop({ required: true, enum: Object.values(PaymentMethod) })
 //   method: PaymentMethod;
 
- @Prop({ required: true, enum: ['paid', 'unpaid', 'refunded', 'partially_refunded'], default: 'unpaid' })
-  status: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
+ @Prop({ required: true, enum: ['paid', 'unpaid','failed', 'refunded', 'partially_refunded'], default: 'unpaid' })
+  status: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded' | 'failed';
 
   @Prop()
   transactionId?: string;
@@ -73,9 +76,11 @@ export class Payment {
   @Prop({ type: Number, default: 0 })
   refundPercentage?: number;
 
-  @Prop({ enum: ['none', 'requested', 'processed', 'failed'], default: 'none' })
-  refundStatus?: 'none' | 'requested' | 'processed' | 'failed';
+  @Prop({ enum: ['processed' , 'failed' , 'not_applicable','none'], default: 'none' })
+  refundStatus?: 'processed' | 'failed' | 'not_applicable' |'none';
 
+  @Prop({default:''})
+  refundId?: string
 
   @Prop()
   refundReason?: string;

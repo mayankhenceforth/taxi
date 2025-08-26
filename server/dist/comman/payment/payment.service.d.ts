@@ -5,15 +5,21 @@ import { RideDocument } from '../schema/ride.schema';
 import { InvoiceService } from '../invoice/invoice.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { PaymentDocument } from '../schema/payment.schema';
+import { DriverEarningDocument } from '../schema/driver-earnings.schema';
+import { DriverPayoutDocument } from '../schema/payout.schema';
+import { DriverPaymentDocument } from '../schema/DriverPaymentInfo.schema';
 export declare class PaymentService {
     private readonly configService;
     private readonly rideModel;
-    private readonly paymentModel;
+    private paymentModel;
+    private readonly driverPayoutModel;
+    private readonly driverEarningModel;
+    private readonly driverPaymentModel;
     private readonly invoiceService;
     private readonly cloudinaryService;
     private stripe;
-    constructor(configService: ConfigService, rideModel: Model<RideDocument>, paymentModel: Model<PaymentDocument>, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
-    createCheckoutSession(successUrl: string, cancelUrl: string, rideId: string, totalAmount: number): Promise<string>;
+    constructor(configService: ConfigService, rideModel: Model<RideDocument>, paymentModel: Model<PaymentDocument>, driverPayoutModel: Model<DriverPayoutDocument>, driverEarningModel: Model<DriverEarningDocument>, driverPaymentModel: Model<DriverPaymentDocument>, invoiceService: InvoiceService, cloudinaryService: CloudinaryService);
+    createCheckoutSession(successUrl: string, cancelUrl: string, totalAmount: number, rideId: string): Promise<string>;
     handleWebhook(rawBody: Buffer, sig: string): Promise<{
         received: boolean;
     }>;
@@ -23,6 +29,9 @@ export declare class PaymentService {
         status: string | null;
         refundedAmount: number;
         refundPercentage: number;
+        driverEarningAmount: number;
+        driverEarningPercentage: number;
+        plateformEarning: number;
     }>;
     createCustomer(email: string, paymentMethodId: string): Promise<{
         success: boolean;
@@ -87,6 +96,20 @@ export declare class PaymentService {
             currency: string;
             productId: string | Stripe.Product | Stripe.DeletedProduct;
             latestInvoiceId: string | Stripe.Invoice | null;
+        }[];
+    }>;
+    payoutDrivers(): Promise<{
+        success: boolean;
+        message: string;
+        statusCode: number;
+        data: {
+            driverId: any;
+            message?: string;
+            totalEarnings?: number;
+            payoutMethod?: string;
+            payoutAccount?: string;
+            ridesPaid?: number;
+            driverPayment?: any;
         }[];
     }>;
 }

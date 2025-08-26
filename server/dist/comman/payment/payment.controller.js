@@ -68,6 +68,19 @@ let PaymentController = class PaymentController {
     handleGetCustomerSubscriptions(customerId) {
         return this.paymentService.getUserSubscriptions(customerId);
     }
+    async payoutDrivers() {
+        try {
+            const result = await this.paymentService.payoutDrivers();
+            return result;
+        }
+        catch (error) {
+            return {
+                success: false,
+                message: error?.message || 'Failed to process driver payouts',
+                statusCode: common_1.HttpStatus.INTERNAL_SERVER_ERROR,
+            };
+        }
+    }
 };
 exports.PaymentController = PaymentController;
 __decorate([
@@ -317,6 +330,12 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], PaymentController.prototype, "handleGetCustomerSubscriptions", null);
+__decorate([
+    (0, common_1.Post)('payout-drivers'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], PaymentController.prototype, "payoutDrivers", null);
 exports.PaymentController = PaymentController = __decorate([
     (0, common_1.Controller)('stripe'),
     (0, swagger_1.ApiTags)('Stripe Payment Processing'),

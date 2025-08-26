@@ -8,7 +8,7 @@ import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from 'src/comman/schema/user.schema';
-import { Model, PaginateModel, Types } from 'mongoose';
+import mongoose, { Model, PaginateModel, Types } from 'mongoose';
 import { Role } from 'src/comman/enums/role.enum';
 import { Ride, RideDocument, TemporaryRide, TemporaryRideDocument } from 'src/comman/schema/ride.schema';
 import { toWords } from 'number-to-words';
@@ -19,6 +19,9 @@ import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import Stripe from 'stripe';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { PaymentDocument } from 'src/comman/schema/payment.schema';
+import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
+import { Mode } from 'fs';
+import { DriverPayment, DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
 export type UserRole = 'super-admin' | 'admin' | 'user';
 
 @Injectable()
@@ -28,7 +31,8 @@ export class AdminService {
     private userModel: PaginateModel<UserDocument>,
     @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
     @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
-
+    @InjectModel(DriverEarning.name) private readonly driverEarningModel:Model<DriverEarningDocument>,
+    @InjectModel(DriverPayment.name) private readonly driverPaymentModel :Model<DriverPaymentDocument>,
     private configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly invoiceService:InvoiceService,
@@ -372,5 +376,170 @@ async processRefund(rideId: string) {
     },
   );
 }
+
+
+// check the code logic and this code action perform but data not correct
+
+async payAllDrivers() {
+  const driversData = await this.rideModel.aggregate([
+    {
+      $match: {
+        status: { $in: ["completed", "cancelled"] },
+        driverPaymentStatus: { $ne: "paid" },
+      },
+    },
+    {
+      $facet: {
+        rideDetails: [
+          {
+            $project: {
+              driver: 1,
+              rideId: "$_id",
+              status: 1,
+              cancelledBy: 1,
+              driverEarnings: 1,
+              TotalFare: 1,
+            },
+          },
+          {
+            $group: {
+              _id: "$driver",
+              rides: { $push: "$$ROOT" },
+            },
+          },
+        ],
+        summary: [
+          {
+            $group: {
+              _id: "$driver",
+              completedCount: {
+                $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+              },
+              completedIncome: {
+                $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$driverEarnings", 0] },
+              },
+              cancelledByUserCount: {
+                $sum: {
+                  $cond: [
+                    { $and: [{ $eq: ["$status", "cancelled"] }, { $eq: ["$cancelledBy", "User"] }] },
+                    1,
+                    0,
+                  ],
+                },
+              },
+              allRidesIncome: { $sum: "$driverEarnings" },
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        drivers: {
+          $map: {
+            input: "$summary",
+            as: "s",
+            in: {
+              driverId: "$$s._id",
+              completedCount: "$$s.completedCount",
+              completedIncome: "$$s.completedIncome",
+              cancelledByUserCount: "$$s.cancelledByUserCount",
+              allRidesIncome: "$$s.allRidesIncome",
+              rides: {
+                $arrayElemAt: [
+                  {
+                    $filter: {
+                      input: "$rideDetails",
+                      cond: { $eq: ["$$this._id", "$$s._id"] },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    { $unwind: "$drivers" },
+    { $replaceRoot: { newRoot: "$drivers" } },
+    {
+      $lookup: {
+        from: "driverpayouts",
+        localField: "driverId",
+        foreignField: "driverId",
+        as: "payoutAccounts",
+      },
+    },
+  ]);
+
+  const results: any[] = [];
+
+  for (const driver of driversData) {
+    if (!driver.driverId) continue;
+
+    const payoutDetails = driver.payoutAccounts.find((p: any) => p.isDefault && p.isActive);
+
+    if (!payoutDetails) {
+      results.push({
+        driverId: driver.driverId,
+        message: "No active payout account found, skipped",
+        totalEarnings: driver.allRidesIncome,
+      });
+      continue;
+    }
+
+    // Update DriverPayment document
+    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+      { driverId: driver.driverId },
+      {
+        $set: {
+          payoutMethod: payoutDetails._id,
+          balance: 0,
+          status: "paid",
+          lastPayoutAmount: driver.allRidesIncome,
+          lastPayoutDate: new Date(),
+          payoutTransactionId: new Types.ObjectId().toHexString(),
+          remarks: "Payout processed successfully",
+        },
+        $inc: {
+          totalEarnings: driver.allRidesIncome,
+        },
+      },
+      { upsert: true, new: true },
+    );
+
+    // Update DriverEarning documents
+    await this.driverEarningModel.updateMany(
+      { driverId: driver.driverId, driverPaymentStatus: "unpaid" },
+      { $set: { driverPaymentStatus: "paid", updatedAt: new Date() } },
+    );
+
+    // Update Ride documents
+    await this.rideModel.updateMany(
+      { _id: { $in: driver.rides.rides.map((r: any) => r.rideId) } },
+      { $set: { driverPaymentStatus: "paid" } },
+    );
+
+    results.push({
+      driverId: driver.driverId,
+      totalEarnings: driver.allRidesIncome,
+      payoutMethod: payoutDetails.method,
+      payoutAccount: payoutDetails.accountNumber,
+      ridesPaid: driver.rides.rides.length,
+      driverPayment,
+    });
+  }
+
+  return {
+    success: true,
+    message: "Driver payouts processed",
+    statusCode: 200,
+    data: results,
+  };
+}
+
+
+
 
 }

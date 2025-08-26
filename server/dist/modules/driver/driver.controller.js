@@ -22,10 +22,18 @@ const auth_guards_1 = require("../../comman/guards/auth.guards");
 const role_guards_1 = require("../../comman/guards/role.guards");
 const role_decorator_1 = require("../../comman/decorator/role.decorator");
 const role_enum_1 = require("../../comman/enums/role.enum");
+const mongoose_1 = require("@nestjs/mongoose");
+const ride_schema_1 = require("../../comman/schema/ride.schema");
+const payout_schema_1 = require("../../comman/schema/payout.schema");
+const mongoose_2 = require("mongoose");
 let DriverController = class DriverController {
     driverService;
-    constructor(driverService) {
+    rideModel;
+    driverPayoutModel;
+    constructor(driverService, rideModel, driverPayoutModel) {
         this.driverService = driverService;
+        this.rideModel = rideModel;
+        this.driverPayoutModel = driverPayoutModel;
     }
     async setupDriverAccount(req, setupDriverAccountDto) {
         return this.driverService.setupDriverAccount(req, setupDriverAccountDto);
@@ -116,6 +124,10 @@ exports.DriverController = DriverController = __decorate([
     (0, role_decorator_1.Roles)(role_enum_1.Role.Driver),
     (0, common_1.UseGuards)(auth_guards_1.AuthGuards, role_guards_1.RoleGuards),
     (0, common_1.Controller)('driver'),
-    __metadata("design:paramtypes", [driver_service_1.DriverService])
+    __param(1, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
+    __param(2, (0, mongoose_1.InjectModel)(payout_schema_1.DriverPayout.name)),
+    __metadata("design:paramtypes", [driver_service_1.DriverService,
+        mongoose_2.Model,
+        mongoose_2.Model])
 ], DriverController);
 //# sourceMappingURL=driver.controller.js.map

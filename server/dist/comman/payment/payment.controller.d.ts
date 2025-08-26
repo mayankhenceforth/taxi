@@ -1,3 +1,4 @@
+import { HttpStatus } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -23,6 +24,9 @@ export declare class PaymentController {
         status: string | null;
         refundedAmount: number;
         refundPercentage: number;
+        driverEarningAmount: number;
+        driverEarningPercentage: number;
+        plateformEarning: number;
     }>;
     handleCreateSubscription(createSubscriptionDto: CreateSubscriptionDto): Promise<{
         success: boolean;
@@ -80,5 +84,23 @@ export declare class PaymentController {
             productId: string | import("stripe").Stripe.Product | import("stripe").Stripe.DeletedProduct;
             latestInvoiceId: string | import("stripe").Stripe.Invoice | null;
         }[];
+    }>;
+    payoutDrivers(): Promise<{
+        success: boolean;
+        message: string;
+        statusCode: number;
+        data: {
+            driverId: any;
+            message?: string;
+            totalEarnings?: number;
+            payoutMethod?: string;
+            payoutAccount?: string;
+            ridesPaid?: number;
+            driverPayment?: any;
+        }[];
+    } | {
+        success: boolean;
+        message: any;
+        statusCode: HttpStatus;
     }>;
 }

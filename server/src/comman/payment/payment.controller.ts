@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Delete, Req, Headers, RawBodyRequest, Body, Put, Res, BadRequestException, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Delete, Req, Headers, RawBodyRequest, Body, Put, Res, BadRequestException, Query, HttpStatus } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
@@ -16,31 +16,31 @@ import { Request, Response } from 'express';
 export class PaymentController {
   private totalAmount: number;
   private rideId: string;
-  
+
   constructor(
     private readonly paymentService: PaymentService,
     @InjectModel(Ride.name) private rideModel: Model<RideDocument>,
   ) { }
 
   @Get("create-checkout-session")
-  @ApiOperation({ 
-    summary: 'Create checkout session', 
-    description: 'Create a Stripe checkout session for payment processing. Returns a session ID for client-side redirection.' 
+  @ApiOperation({
+    summary: 'Create checkout session',
+    description: 'Create a Stripe checkout session for payment processing. Returns a session ID for client-side redirection.'
   })
-  @ApiQuery({ 
-    name: 'amount', 
-    required: false, 
-    type: Number, 
-    description: 'Payment amount in smallest currency unit (e.g., cents for USD)' 
+  @ApiQuery({
+    name: 'amount',
+    required: false,
+    type: Number,
+    description: 'Payment amount in smallest currency unit (e.g., cents for USD)'
   })
-  @ApiQuery({ 
-    name: 'rideId', 
-    required: false, 
-    type: String, 
-    description: 'Ride ID associated with this payment' 
+  @ApiQuery({
+    name: 'rideId',
+    required: false,
+    type: String,
+    description: 'Ride ID associated with this payment'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Checkout session created successfully',
     schema: {
       type: 'object',
@@ -56,19 +56,19 @@ export class PaymentController {
   ) {
     const paymentAmount = amount || this.totalAmount;
     const associatedRideId = rideId || this.rideId;
-    
+
     return this.paymentService.createCheckoutSession(
       "http://localhost:3000/stripe/success",
       "http://localhost:3000/stripe/cancel",
       paymentAmount,
-       associatedRideId,
+      associatedRideId,
     );
   }
 
   @Get("success")
-  @ApiOperation({ 
-    summary: 'Payment success page', 
-    description: 'Redirect endpoint for successful payments. Displays confirmation message to users.' 
+  @ApiOperation({
+    summary: 'Payment success page',
+    description: 'Redirect endpoint for successful payments. Displays confirmation message to users.'
   })
   @ApiResponse({ status: 200, description: 'Payment success page rendered' })
   handlePaymentSuccess() {
@@ -76,9 +76,9 @@ export class PaymentController {
   }
 
   @Get("cancel")
-  @ApiOperation({ 
-    summary: 'Payment cancellation page', 
-    description: 'Redirect endpoint for cancelled payments. Allows users to retry payment.' 
+  @ApiOperation({
+    summary: 'Payment cancellation page',
+    description: 'Redirect endpoint for cancelled payments. Allows users to retry payment.'
   })
   @ApiResponse({ status: 200, description: 'Payment cancellation page rendered' })
   handlePaymentCancel() {
@@ -86,9 +86,9 @@ export class PaymentController {
   }
 
   @Post('webhook')
-  @ApiOperation({ 
-    summary: 'Stripe webhook handler', 
-    description: 'Endpoint for Stripe webhook events. Handles payment events like successful charges, refunds, etc.' 
+  @ApiOperation({
+    summary: 'Stripe webhook handler',
+    description: 'Endpoint for Stripe webhook events. Handles payment events like successful charges, refunds, etc.'
   })
   @ApiHeader({
     name: 'stripe-signature',
@@ -114,22 +114,22 @@ export class PaymentController {
   }
 
   @Delete("refund/:intentId/:rideId")
-  @ApiOperation({ 
-    summary: 'Process payment refund', 
-    description: 'Initiate a refund for a specific payment intent. Requires payment intent ID and associated ride ID.' 
+  @ApiOperation({
+    summary: 'Process payment refund',
+    description: 'Initiate a refund for a specific payment intent. Requires payment intent ID and associated ride ID.'
   })
-  @ApiParam({ 
-    name: 'intentId', 
-    type: String, 
-    description: 'Stripe Payment Intent ID to refund' 
+  @ApiParam({
+    name: 'intentId',
+    type: String,
+    description: 'Stripe Payment Intent ID to refund'
   })
-  @ApiParam({ 
-    name: 'rideId', 
-    type: String, 
-    description: 'Ride ID associated with the payment' 
+  @ApiParam({
+    name: 'rideId',
+    type: String,
+    description: 'Ride ID associated with the payment'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Refund processed successfully',
     schema: {
       type: 'object',
@@ -149,13 +149,13 @@ export class PaymentController {
   }
 
   @Post("create-subscription")
-  @ApiOperation({ 
-    summary: 'Create subscription', 
-    description: 'Create a new subscription for a customer using price ID. For recurring payments.' 
+  @ApiOperation({
+    summary: 'Create subscription',
+    description: 'Create a new subscription for a customer using price ID. For recurring payments.'
   })
   @ApiBody({ type: CreateSubscriptionDto })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Subscription created successfully',
     schema: {
       type: 'object',
@@ -170,13 +170,13 @@ export class PaymentController {
   }
 
   @Post("create-subscription-by-checkout")
-  @ApiOperation({ 
-    summary: 'Create subscription via checkout', 
-    description: 'Create a subscription using Stripe Checkout for better user experience.' 
+  @ApiOperation({
+    summary: 'Create subscription via checkout',
+    description: 'Create a subscription using Stripe Checkout for better user experience.'
   })
   @ApiBody({ type: CreateSubscriptionDto })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Checkout session created for subscription',
     schema: {
       type: 'object',
@@ -196,13 +196,13 @@ export class PaymentController {
   }
 
   @Put("update-subscription")
-  @ApiOperation({ 
-    summary: 'Update subscription', 
-    description: 'Update an existing subscription (e.g., change plan, update payment method).' 
+  @ApiOperation({
+    summary: 'Update subscription',
+    description: 'Update an existing subscription (e.g., change plan, update payment method).'
   })
   @ApiBody({ type: UpdateSubscriptionDto })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Subscription updated successfully',
     schema: {
       type: 'object',
@@ -218,17 +218,17 @@ export class PaymentController {
   }
 
   @Delete("delete-subscription/:subscriptionId")
-  @ApiOperation({ 
-    summary: 'Cancel subscription', 
-    description: 'Cancel an existing subscription. The subscription will remain active until the end of the current billing period.' 
+  @ApiOperation({
+    summary: 'Cancel subscription',
+    description: 'Cancel an existing subscription. The subscription will remain active until the end of the current billing period.'
   })
-  @ApiParam({ 
-    name: 'subscriptionId', 
-    type: String, 
-    description: 'Stripe Subscription ID to cancel' 
+  @ApiParam({
+    name: 'subscriptionId',
+    type: String,
+    description: 'Stripe Subscription ID to cancel'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Subscription cancelled successfully',
     schema: {
       type: 'object',
@@ -244,17 +244,17 @@ export class PaymentController {
   }
 
   @Get("customer-subscriptions/:customerId")
-  @ApiOperation({ 
-    summary: 'Get customer subscriptions', 
-    description: 'Retrieve all active subscriptions for a specific customer.' 
+  @ApiOperation({
+    summary: 'Get customer subscriptions',
+    description: 'Retrieve all active subscriptions for a specific customer.'
   })
-  @ApiParam({ 
-    name: 'customerId', 
-    type: String, 
-    description: 'Stripe Customer ID' 
+  @ApiParam({
+    name: 'customerId',
+    type: String,
+    description: 'Stripe Customer ID'
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Subscriptions retrieved successfully',
     schema: {
       type: 'array',
@@ -275,39 +275,18 @@ export class PaymentController {
     return this.paymentService.getUserSubscriptions(customerId);
   }
 
-  // Commented out endpoints with documentation in case you want to enable them later
-  /*
-  @Get("subscriptions-data")
-  @ApiOperation({ 
-    summary: 'Get all subscriptions data', 
-    description: 'Retrieve data for all subscriptions in the system. Requires admin privileges.' 
-  })
-  @ApiBearerAuth()
-  @ApiResponse({ status: 200, description: 'Subscriptions data retrieved' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Admin access required' })
-  handleGetSubscriptionsData() {
-    return this.paymentService.getAllSubscriptions();
+  @Post('payout-drivers')
+  async payoutDrivers() {
+    try {
+      const result = await this.paymentService.payoutDrivers();
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        message: error?.message || 'Failed to process driver payouts',
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      };
+    }
   }
 
-  @Post("create-customer")
-  @ApiOperation({ 
-    summary: 'Create customer', 
-    description: 'Create a new Stripe customer for payment processing.' 
-  })
-  @ApiBody({ type: CreateCustomerDto })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Customer created successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        customerId: { type: 'string', example: 'cus_abc123' }
-      }
-    }
-  })
-  handleCreateCustomer(@Body() createCustomerDto: CreateCustomerDto) {
-    return this.paymentService.createCustomer(createCustomerDto);
-  }
-  */
 }

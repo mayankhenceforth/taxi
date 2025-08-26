@@ -25,18 +25,24 @@ const ride_schema_1 = require("../../comman/schema/ride.schema");
 const cloudinary_service_1 = require("../../comman/cloudinary/cloudinary.service");
 const invoice_service_1 = require("../../comman/invoice/invoice.service");
 const payment_service_1 = require("../../comman/payment/payment.service");
+const driver_earnings_schema_1 = require("../../comman/schema/driver-earnings.schema");
+const DriverPaymentInfo_schema_1 = require("../../comman/schema/DriverPaymentInfo.schema");
 let AdminService = class AdminService {
     userModel;
     rideModel;
     TemporyRideModel;
+    driverEarningModel;
+    driverPaymentModel;
     configService;
     cloudinaryService;
     invoiceService;
     paymentService;
-    constructor(userModel, rideModel, TemporyRideModel, configService, cloudinaryService, invoiceService, paymentService) {
+    constructor(userModel, rideModel, TemporyRideModel, driverEarningModel, driverPaymentModel, configService, cloudinaryService, invoiceService, paymentService) {
         this.userModel = userModel;
         this.rideModel = rideModel;
         this.TemporyRideModel = TemporyRideModel;
+        this.driverEarningModel = driverEarningModel;
+        this.driverPaymentModel = driverPaymentModel;
         this.configService = configService;
         this.cloudinaryService = cloudinaryService;
         this.invoiceService = invoiceService;
@@ -265,6 +271,143 @@ let AdminService = class AdminService {
             paymentId: payment._id,
         });
     }
+    async payAllDrivers() {
+        const driversData = await this.rideModel.aggregate([
+            {
+                $match: {
+                    status: { $in: ["completed", "cancelled"] },
+                    driverPaymentStatus: { $ne: "paid" },
+                },
+            },
+            {
+                $facet: {
+                    rideDetails: [
+                        {
+                            $project: {
+                                driver: 1,
+                                rideId: "$_id",
+                                status: 1,
+                                cancelledBy: 1,
+                                driverEarnings: 1,
+                                TotalFare: 1,
+                            },
+                        },
+                        {
+                            $group: {
+                                _id: "$driver",
+                                rides: { $push: "$$ROOT" },
+                            },
+                        },
+                    ],
+                    summary: [
+                        {
+                            $group: {
+                                _id: "$driver",
+                                completedCount: {
+                                    $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+                                },
+                                completedIncome: {
+                                    $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$driverEarnings", 0] },
+                                },
+                                cancelledByUserCount: {
+                                    $sum: {
+                                        $cond: [
+                                            { $and: [{ $eq: ["$status", "cancelled"] }, { $eq: ["$cancelledBy", "User"] }] },
+                                            1,
+                                            0,
+                                        ],
+                                    },
+                                },
+                                allRidesIncome: { $sum: "$driverEarnings" },
+                            },
+                        },
+                    ],
+                },
+            },
+            {
+                $project: {
+                    drivers: {
+                        $map: {
+                            input: "$summary",
+                            as: "s",
+                            in: {
+                                driverId: "$$s._id",
+                                completedCount: "$$s.completedCount",
+                                completedIncome: "$$s.completedIncome",
+                                cancelledByUserCount: "$$s.cancelledByUserCount",
+                                allRidesIncome: "$$s.allRidesIncome",
+                                rides: {
+                                    $arrayElemAt: [
+                                        {
+                                            $filter: {
+                                                input: "$rideDetails",
+                                                cond: { $eq: ["$$this._id", "$$s._id"] },
+                                            },
+                                        },
+                                        0,
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            { $unwind: "$drivers" },
+            { $replaceRoot: { newRoot: "$drivers" } },
+            {
+                $lookup: {
+                    from: "driverpayouts",
+                    localField: "driverId",
+                    foreignField: "driverId",
+                    as: "payoutAccounts",
+                },
+            },
+        ]);
+        const results = [];
+        for (const driver of driversData) {
+            if (!driver.driverId)
+                continue;
+            const payoutDetails = driver.payoutAccounts.find((p) => p.isDefault && p.isActive);
+            if (!payoutDetails) {
+                results.push({
+                    driverId: driver.driverId,
+                    message: "No active payout account found, skipped",
+                    totalEarnings: driver.allRidesIncome,
+                });
+                continue;
+            }
+            const driverPayment = await this.driverPaymentModel.findOneAndUpdate({ driverId: driver.driverId }, {
+                $set: {
+                    payoutMethod: payoutDetails._id,
+                    balance: 0,
+                    status: "paid",
+                    lastPayoutAmount: driver.allRidesIncome,
+                    lastPayoutDate: new Date(),
+                    payoutTransactionId: new mongoose_2.Types.ObjectId().toHexString(),
+                    remarks: "Payout processed successfully",
+                },
+                $inc: {
+                    totalEarnings: driver.allRidesIncome,
+                },
+            }, { upsert: true, new: true });
+            await this.driverEarningModel.updateMany({ driverId: driver.driverId, driverPaymentStatus: "unpaid" }, { $set: { driverPaymentStatus: "paid", updatedAt: new Date() } });
+            await this.rideModel.updateMany({ _id: { $in: driver.rides.rides.map((r) => r.rideId) } }, { $set: { driverPaymentStatus: "paid" } });
+            results.push({
+                driverId: driver.driverId,
+                totalEarnings: driver.allRidesIncome,
+                payoutMethod: payoutDetails.method,
+                payoutAccount: payoutDetails.accountNumber,
+                ridesPaid: driver.rides.rides.length,
+                driverPayment,
+            });
+        }
+        return {
+            success: true,
+            message: "Driver payouts processed",
+            statusCode: 200,
+            data: results,
+        };
+    }
 };
 exports.AdminService = AdminService;
 exports.AdminService = AdminService = __decorate([
@@ -272,7 +415,11 @@ exports.AdminService = AdminService = __decorate([
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
     __param(1, (0, mongoose_1.InjectModel)(ride_schema_1.Ride.name)),
     __param(2, (0, mongoose_1.InjectModel)(ride_schema_1.TemporaryRide.name)),
+    __param(3, (0, mongoose_1.InjectModel)(driver_earnings_schema_1.DriverEarning.name)),
+    __param(4, (0, mongoose_1.InjectModel)(DriverPaymentInfo_schema_1.DriverPayment.name)),
     __metadata("design:paramtypes", [Object, mongoose_2.Model,
+        mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         config_1.ConfigService,
         cloudinary_service_1.CloudinaryService,
