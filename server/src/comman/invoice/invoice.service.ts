@@ -834,36 +834,36 @@ Generated: ${new Date().toLocaleString('en-IN')}`,
     `;
   }
 
-  async generateDriverInvoice(driverId: string, rideIds: string[]): Promise<Buffer> {
-  const rides = await this.rideModel.find({ _id: { $in: rideIds } })
-    .populate('bookedBy', 'name contactNumber email')
-    .populate('driver', 'name contactNumber vehicleDetails')
-    .exec();
+//   async generateDriverInvoice(driverId: string, rideIds: string[]): Promise<Buffer> {
+//   const rides = await this.rideModel.find({ _id: { $in: rideIds } })
+//     .populate('bookedBy', 'name contactNumber email')
+//     .populate('driver', 'name contactNumber vehicleDetails')
+//     .exec();
 
-  const totalEarnings = rides.reduce((sum, r) => sum + (r.driverEarnings || 0), 0);
+//   const totalEarnings = rides.reduce((sum, r) => sum + (r.driverEarnings || 0), 0);
 
-  const qrCodeData = await this.generateQRCode({
-    rideId: rides.map(r => r._id).join(','),
-    totalFare: totalEarnings,
-    driverEarnings: totalEarnings,
-    driverName: String(rides[0]?.driver?._id)|| 'N/A',
-    userName: String(rides[0]?.bookedBy?._id) || 'N/A',
-    distance: rides.reduce((sum, r) => sum + (r.distance || 0), 0),
-    // include other ride details as needed
-  });
+//   const qrCodeData = await this.generateQRCode({
+//     rideId: rides.map(r => r._id).join(','),
+//     totalFare: totalEarnings,
+//     driverEarnings: totalEarnings,
+//     driverName: (rides[0]?.driver?._id)|| 'N/A',
+//     userName: rides[0]?.bookedBy?._id || 'N/A',
+//     distance: rides.reduce((sum, r) => sum + (r.distance || 0), 0),
+//     // include other ride details as needed
+//   });
 
-  const invoiceHtml = this.generateInvoiceHtml({
-    ride: rides,
-    user: rides[0]?.bookedBy,
-    driver: rides[0]?.driver,
-    pickupLocationName: 'Multiple',
-    dropLocationName: 'Multiple',
-    qrCodeData,
-    totalInWords: toWords(Math.round(totalEarnings)),
-    invoiceNo: `DRV-${new Date().getTime()}-${driverId}`,
-  });
+//   const invoiceHtml = this.generateInvoiceHtml({
+//     ride: rides,
+//     user: rides[0]?.bookedBy,
+//     driver: rides[0]?.driver,
+//     pickupLocationName: 'Multiple',
+//     dropLocationName: 'Multiple',
+//     qrCodeData,
+//     totalInWords: toWords(Math.round(totalEarnings)),
+//     invoiceNo: `DRV-${new Date().getTime()}-${driverId}`,
+//   });
 
-  return await this.pdfGeneratorService.generatePdfFromHtml(invoiceHtml);
-}
+//   return await this.pdfGeneratorService.generatePdfFromHtml(invoiceHtml);
+// }
 
 }
