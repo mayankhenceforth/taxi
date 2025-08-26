@@ -1,4 +1,5 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { GetUsersDto } from './dto/get-users.dto';
 import ApiResponse from 'src/comman/helpers/api-response';
 import { InjectModel } from '@nestjs/mongoose';
@@ -6,11 +7,22 @@ import { ConfigService } from '@nestjs/config';
 import { CreateNewEntryDto } from './dto/create-admin.dto';
 import { DeleteEntryDto } from './dto/delete-entry.dto';
 import { UpdateEntryDto } from './dto/update-admin.dto';
+import { CreateSettingDto } from './dto/create-setting.dto';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from 'src/comman/schema/user.schema';
-import { Model, PaginateModel, Types } from 'mongoose';
+import mongoose, { Model, PaginateModel, Types } from 'mongoose';
 import { Role } from 'src/comman/enums/role.enum';
 import { Ride, RideDocument, TemporaryRide, TemporaryRideDocument } from 'src/comman/schema/ride.schema';
+import { Setting, SettingDocument } from 'src/comman/schema/setting.schema';
+import { toWords } from 'number-to-words';
+import * as puppeteer from 'puppeteer';
+import * as QRCode from 'qrcode';
+import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
+import { InvoiceService } from 'src/comman/invoice/invoice.service';
+import { PaymentService } from 'src/comman/payment/payment.service';
+import { PaymentDocument } from 'src/comman/schema/payment.schema';
+import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
+import { DriverPayment, DriverPaymentDocument } from 'src/comman/schema/DriverPaymentInfo.schema';
 
 export type UserRole = 'super-admin' | 'admin' | 'user';
 
@@ -18,12 +30,51 @@ export type UserRole = 'super-admin' | 'admin' | 'user';
 export class AdminService {
   constructor(
     @InjectModel(User.name)
-    private userModel: PaginateModel<UserDocument>,
+    private userModel: Model<UserDocument>,
     @InjectModel(Ride.name) private readonly rideModel: Model<RideDocument>,
     @InjectModel(TemporaryRide.name) private readonly TemporyRideModel: Model<TemporaryRideDocument>,
-
+    @InjectModel(DriverEarning.name) private readonly driverEarningModel: Model<DriverEarningDocument>,
+    @InjectModel(DriverPayment.name) private readonly driverPaymentModel: Model<DriverPaymentDocument>,
+    @InjectModel(Setting.name) private readonly settingModel: Model<SettingDocument>,
     private configService: ConfigService,
-  ) { }
+    private readonly cloudinaryService: CloudinaryService,
+    private readonly invoiceService: InvoiceService,
+    private readonly paymentService: PaymentService,
+  ) {}
+
+  private getDateFilter(filter: string): Date {
+    const now = new Date();
+    switch (filter) {
+      case 'last_hour':
+        return new Date(now.getTime() - 60 * 60 * 1000);
+      case '1_day':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      case '10_days':
+        return new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
+      case '1_month':
+        return new Date(now.setMonth(now.getMonth() - 1));
+      default:
+        throw new BadRequestException('Invalid filter');
+    }
+  }
+
+  private validateRefundPolicy(refundPolicy: any): void {
+    const validateSum = (obj: { refundPercent: number; driverEarningPercent: number; platformEarningPercent: number }) => {
+      if (obj.refundPercent + obj.driverEarningPercent + obj.platformEarningPercent !== 100) {
+        throw new BadRequestException(
+          'Refund, driver earning, and platform earning percentages must sum to 100',
+        );
+      }
+    };
+
+    validateSum(refundPolicy.driverCancellation.default);
+    validateSum(refundPolicy.driverCancellation.arrived);
+    validateSum(refundPolicy.userCancellation.within10Min);
+    validateSum(refundPolicy.userCancellation.within15Min);
+    validateSum(refundPolicy.userCancellation.within20Min);
+    validateSum(refundPolicy.userCancellation.after20Min);
+    validateSum(refundPolicy.systemCancellation);
+  }
 
   /** Seed the default super-admin account if not present */
   async seedSuperAdminData() {
@@ -63,33 +114,27 @@ export class AdminService {
     return await this.userModel.aggregate([
       {
         $match: {
-          role: { $in: [Role.User, Role.Driver] }
-        }
+          role: { $in: [Role.User, Role.Driver] },
+        },
       },
       {
         $group: {
-          _id: "$role",
-          users: { $push: "$$ROOT" }
-        }
+          _id: '$role',
+          users: { $push: '$$ROOT' },
+        },
       },
       {
         $project: {
-          role: "$_id",
+          role: '$_id',
           users: 1,
-          _id: 0
-        }
-      }
+          _id: 0,
+        },
+      },
     ]);
-
-
   }
 
-
   /** Create a new admin or user */
-  async createNewEntry(
-    createNewEntryDto: CreateNewEntryDto,
-    role: UserRole = 'user',
-  ) {
+  async createNewEntry(createNewEntryDto: CreateNewEntryDto, role: UserRole = 'user') {
     const existingUser = await this.userModel.findOne({
       contactNumber: createNewEntryDto.contactNumber,
     });
@@ -101,12 +146,8 @@ export class AdminService {
       );
     }
 
-    // Hash password if provided
     if (createNewEntryDto.password) {
-      createNewEntryDto.password = await bcrypt.hash(
-        createNewEntryDto.password,
-        10,
-      );
+      createNewEntryDto.password = await bcrypt.hash(createNewEntryDto.password, 10);
     }
 
     const newEntry = new this.userModel({
@@ -128,10 +169,7 @@ export class AdminService {
   }
 
   /** Delete an entry by role */
-  async deleteEntry(
-    deleteEntryDto: DeleteEntryDto,
-    role: UserRole = 'admin',
-  ) {
+  async deleteEntry(deleteEntryDto: DeleteEntryDto, role: UserRole = 'admin') {
     const id = new Types.ObjectId(deleteEntryDto?._id);
 
     const existingUser = await this.userModel.findOne({ _id: id, role });
@@ -155,10 +193,7 @@ export class AdminService {
   }
 
   /** Update an entry by role */
-  async updateEntry(
-    updateEntryDto: UpdateEntryDto,
-    role: UserRole = 'user',
-  ) {
+  async updateEntry(updateEntryDto: UpdateEntryDto, role: UserRole = 'user') {
     const id = new Types.ObjectId(updateEntryDto?._id);
 
     const existingUser = await this.userModel.findOne({ _id: id, role });
@@ -172,12 +207,8 @@ export class AdminService {
       );
     }
 
-    // Hash password if updating it
     if (updateEntryDto.password) {
-      updateEntryDto.password = await bcrypt.hash(
-        updateEntryDto.password,
-        10,
-      );
+      updateEntryDto.password = await bcrypt.hash(updateEntryDto.password, 10);
     }
 
     const updatedEntry = await this.userModel
@@ -199,82 +230,357 @@ export class AdminService {
   }
 
   async getAllRideDetails() {
-
     return await this.rideModel.aggregate([
       {
         $group: {
-          _id: "$status",
-          rides: { $push: "$$ROOT" }
-        }
-      }
-    ])
-
+          _id: '$status',
+          rides: { $push: '$$ROOT' },
+        },
+      },
+    ]);
   }
 
   async getAllTemporaryRideDetails() {
     return await this.TemporyRideModel.aggregate([
       {
         $group: {
-          _id: "$status",
-          rides: { $push: "$$ROOT" }
-        }
-      }
-    ])
+          _id: '$status',
+          rides: { $push: '$$ROOT' },
+        },
+      },
+    ]);
   }
 
   async getAllRideWithStatus(status: string) {
-  if (!status) {
-    throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
+    if (!status) {
+      throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled'];
+    if (!allowedStatuses.includes(status)) {
+      throw new HttpException(
+        `Invalid status provided. Allowed values are: ${allowedStatuses.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const rides = await this.rideModel.aggregate([
+      { $match: { status } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'bookedBy',
+          foreignField: '_id',
+          as: 'bookedBy',
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'driver',
+          foreignField: '_id',
+          as: 'driver',
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          status: 1,
+          bookedBy: 1,
+          driver: 1,
+          pickupLocation: 1,
+          dropLocation: 1,
+          totalFare: 1,
+          cancelReason: 1,
+          cancelledBy: 1,
+          paymentStatus: 1,
+          refundStatus: 1,
+        },
+      },
+    ]);
+
+    return {
+      status,
+      rides,
+    };
   }
 
-  const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled'];
-  if (!allowedStatuses.includes(status)) {
-    throw new HttpException(
-      `Invalid status provided. Allowed values are: ${allowedStatuses.join(', ')}`,
-      HttpStatus.BAD_REQUEST
+  async getRideInvoice(rideId: string) {
+    if (!rideId) {
+      throw new HttpException('Ride ID is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const ride = await this.rideModel.findById(rideId);
+
+    if (!ride) {
+      throw new HttpException('Ride not found', HttpStatus.NOT_FOUND);
+    }
+
+    return ride.invoiceUrl;
+  }
+
+  async getTotalEarning(filter: string): Promise<Buffer> {
+    return this.invoiceService.TotalIncome(filter);
+  }
+
+  async getNewUsers(filter: string): Promise<Buffer> {
+    return this.invoiceService.NewUsersReport(filter);
+  }
+
+  async getNewRides(filter: string): Promise<Buffer> {
+    return this.invoiceService.NewRidesReport(filter);
+  }
+
+  async processRefund(rideId: string) {
+    if (!rideId) {
+      throw new HttpException('Ride ID is required', HttpStatus.BAD_REQUEST);
+    }
+
+    const ride = await this.rideModel.findById(rideId).populate('paymentId');
+
+    if (!ride) {
+      throw new HttpException('Ride not found', HttpStatus.NOT_FOUND);
+    }
+
+    let payment = ride.paymentId as unknown as PaymentDocument;
+
+    if (!payment) {
+      throw new HttpException('Payment not found for this ride', HttpStatus.NOT_FOUND);
+    }
+
+    if (payment.refundStatus === 'processed') {
+      throw new HttpException('Refund has already been processed for this ride', HttpStatus.BAD_REQUEST);
+    }
+
+    if (!payment.paymentIntentId) {
+      throw new HttpException('Payment intent ID not found for this ride', HttpStatus.BAD_REQUEST);
+    }
+
+    const refundResult = await this.paymentService.handleRefund(rideId);
+
+    ride.paymentStatus = refundResult.refundPercentage === 100 ? 'refunded' : 'partially_refunded';
+    await ride.save();
+
+    return new ApiResponse(
+      true,
+      'Refund processed successfully!',
+      HttpStatus.OK,
+      {
+        rideId: ride._id,
+        refundStatus: ride.paymentStatus,
+        refundAmount: refundResult.refundedAmount,
+        refundPercentage: refundResult.refundPercentage,
+        paymentId: payment._id,
+      },
     );
   }
 
- 
-  const rides = await this.rideModel.aggregate([
-    { $match: { status } },
-    {
-      $lookup: {      
-        from: 'users',
-        localField: 'bookedBy',
-        foreignField: '_id',
-        as: 'bookedBy'
+  async payAllDrivers() {
+    const driversData = await this.rideModel.aggregate([
+      {
+        $match: {
+          status: { $in: ['completed', 'cancelled'] },
+          driverPaymentStatus: { $ne: 'paid' },
+        },
+      },
+      {
+        $facet: {
+          rideDetails: [
+            {
+              $project: {
+                driver: 1,
+                rideId: '$_id',
+                status: 1,
+                cancelledBy: 1,
+                driverEarnings: 1,
+                TotalFare: 1,
+              },
+            },
+            {
+              $group: {
+                _id: '$driver',
+                rides: { $push: '$$ROOT' },
+              },
+            },
+          ],
+          summary: [
+            {
+              $group: {
+                _id: '$driver',
+                completedCount: {
+                  $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] },
+                },
+                completedIncome: {
+                  $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$driverEarnings', 0] },
+                },
+                cancelledByUserCount: {
+                  $sum: {
+                    $cond: [
+                      { $and: [{ $eq: ['$status', 'cancelled'] }, { $eq: ['$cancelledBy', 'User'] }] },
+                      1,
+                      0,
+                    ],
+                  },
+                },
+                allRidesIncome: { $sum: '$driverEarnings' },
+              },
+            },
+          ],
+        },
+      },
+      {
+        $project: {
+          drivers: {
+            $map: {
+              input: '$summary',
+              as: 's',
+              in: {
+                driverId: '$$s._id',
+                completedCount: '$$s.completedCount',
+                completedIncome: '$$s.completedIncome',
+                cancelledByUserCount: '$$s.cancelledByUserCount',
+                allRidesIncome: '$$s.allRidesIncome',
+                rides: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: '$rideDetails',
+                        cond: { $eq: ['$$this._id', '$$s._id'] },
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+      { $unwind: '$drivers' },
+      { $replaceRoot: { newRoot: '$drivers' } },
+      {
+        $lookup: {
+          from: 'driverpayouts',
+          localField: 'driverId',
+          foreignField: 'driverId',
+          as: 'payoutAccounts',
+        },
+      },
+    ]);
+
+    const results: any[] = [];
+
+    for (const driver of driversData) {
+      if (!driver.driverId) continue;
+
+      const payoutDetails = driver.payoutAccounts.find((p: any) => p.isDefault && p.isActive);
+
+      if (!payoutDetails) {
+        results.push({
+          driverId: driver.driverId,
+          message: 'No active payout account found, skipped',
+          totalEarnings: driver.allRidesIncome,
+        });
+        continue;
       }
-    },
-    {
-      $lookup: {            
-        from: 'users',
-        localField: 'driver',
-        foreignField: '_id',
-        as: 'driver'
-      }
-    },
-    {
-      $project: {
-        _id: 1,
-        status: 1,
-        bookedBy: 1,
-        driver: 1,
-        pickupLocation: 1,
-        dropLocation: 1,
-        totalFare: 1,
-        cancelReason: 1,
-        cancelledBy: 1,
-        paymentStatus: 1,
-        refundStatus:1
-      }
+
+      const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+        { driverId: driver.driverId },
+        {
+          $set: {
+            payoutMethod: payoutDetails._id,
+            balance: 0,
+            status: 'paid',
+            lastPayoutAmount: driver.allRidesIncome,
+            lastPayoutDate: new Date(),
+            payoutTransactionId: new Types.ObjectId().toHexString(),
+            remarks: 'Payout processed successfully',
+          },
+          $inc: {
+            totalEarnings: driver.allRidesIncome,
+          },
+        },
+        { upsert: true, new: true },
+      );
+
+      await this.driverEarningModel.updateMany(
+        { driverId: driver.driverId, driverPaymentStatus: 'unpaid' },
+        { $set: { driverPaymentStatus: 'paid', updatedAt: new Date() } },
+      );
+
+      await this.rideModel.updateMany(
+        { _id: { $in: driver.rides.rides.map((r: any) => r.rideId) } },
+        { $set: { driverPaymentStatus: 'paid' } },
+      );
+
+      results.push({
+        driverId: driver.driverId,
+        totalEarnings: driver.allRidesIncome,
+        payoutMethod: payoutDetails.method,
+        payoutAccount: payoutDetails.accountNumber,
+        ridesPaid: driver.rides.rides.length,
+        driverPayment,
+      });
     }
-  ]);
 
-  return {
-    status,
-    rides
-  };
-}
+    return {
+      success: true,
+      message: 'Driver payouts processed',
+      statusCode: 200,
+      data: results,
+    };
+  }
 
+  // Settings methods
+   async upsertSettings(superAdminId: string, createSettingDto: CreateSettingDto) {
+
+    console.log(createSettingDto)
+    // Validate that superAdminId corresponds to a SuperAdmin
+    // const superAdmin = await this.userModel.findOne({
+    //  _id: new Types.ObjectId(superAdminId),
+    //   role: Role.SuperAdmin,
+    // });
+
+    // console.log("superadmin:",superAdmin)
+
+    // if (!superAdmin) {
+    //   throw new HttpException('SuperAdmin not found or invalid', HttpStatus.FORBIDDEN);
+    // }
+
+    // Validate refund policy percentages
+    // this.validateRefundPolicy(createSettingDto.refundPolicy);
+
+    // Set adminId to superAdminId in the document
+    const setting = await this.settingModel.findOneAndUpdate(
+      {}, // Match any document (single document constraint)
+      { $set: { ...createSettingDto, adminId: superAdminId } }, // Include adminId
+      { new: true, upsert: true }, // Create if none exists, return updated document
+    );
+
+    if (!setting) {
+      throw new HttpException('Failed to create or update settings', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    const message = setting.isNew ? 'Settings created successfully!' : 'Settings updated successfully!';
+    const status = setting.isNew ? HttpStatus.CREATED : HttpStatus.OK;
+
+    return new ApiResponse(true, message, status, { _id: setting._id });
+  }
+
+  async getSettings() {
+    const setting = await this.settingModel.findOne();
+    if (!setting) {
+      throw new HttpException('Settings not found', HttpStatus.NOT_FOUND);
+    }
+    return new ApiResponse(true, 'Settings retrieved successfully!', HttpStatus.OK, setting);
+  }
+
+  async deleteSettings() {
+    const setting = await this.settingModel.findOne();
+    if (!setting) {
+      throw new HttpException('Settings not found', HttpStatus.NOT_FOUND);
+    }
+    await this.settingModel.deleteOne();
+    return new ApiResponse(true, 'Settings deleted successfully!', HttpStatus.OK);
+  }
 }

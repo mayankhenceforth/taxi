@@ -30,6 +30,7 @@ export class RideGateway {
         if (userSocketId) {
             this.server.to(userSocketId).emit('ride-accepted', rideDetails);
         }
+        
     }
 
     sendRideTerminated(userId: string, rideDetails: any) {
@@ -38,12 +39,35 @@ export class RideGateway {
             this.server.to(userSocketId).emit('ride-terminated', rideDetails);
         }
     }
+    sendDriverArrived(userId: string, rideDetails: any) {
+
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('Driver  is arrived he is waiting .....', rideDetails);  
+        }
+    }
+
+    sendDriverStarted(userId: string, rideDetails: any) {
+
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('ride started', rideDetails);  
+        }
+    }
 
     sendRidePaymentConfirmed(userId: string, rideDetails: any) {
 
         const userSocketId = this.connectedUsers.get(userId);
         if (userSocketId) {
             this.server.to(userSocketId).emit('ride-payment-confirmed', rideDetails);  
+        }
+    }
+
+    sendRideCompleted(userId: string, rideDetails: any) {
+
+        const userSocketId = this.connectedUsers.get(userId);
+        if (userSocketId) {
+            this.server.to(userSocketId).emit('ride-complete', rideDetails);  
         }
     }
 }

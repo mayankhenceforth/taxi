@@ -4,6 +4,9 @@ import { InvoiceService } from './invoice.service';
 import { InvoiceController } from './invoice.controller';
 import { Ride, RideSchema } from '../schema/ride.schema';
 import { User, UserSchema } from '../schema/user.schema';
+import { GeocodingService } from './geocoding.service';
+import { HtmlTemplateService } from './html-template.service';
+import { PdfGeneratorService } from './pdf.service';
 
 @Module({
   imports: [
@@ -12,8 +15,13 @@ import { User, UserSchema } from '../schema/user.schema';
       { name: User.name, schema: UserSchema },
     ]),
   ],
-  providers: [InvoiceService],
-  controllers: [InvoiceController],
+  providers: [
+    InvoiceService,
+    HtmlTemplateService,
+    PdfGeneratorService,
+    GeocodingService,
+  ],
+  controllers:[InvoiceController],
   exports: [InvoiceService],
 })
 export class InvoiceModule {}
