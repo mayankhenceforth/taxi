@@ -73,7 +73,7 @@ export class Ride {
     enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
     default: 'processing'
   })
-  status: string;
+  status: 'processing'|'accepted'|'arrived'| 'started'| 'completed'|'cancelled'|'terminated';
 
   @Prop({
     required: true,

@@ -33,8 +33,7 @@ import { DriverPayment, DriverPaymentDocument } from 'src/comman/schema/DriverPa
 import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-earnings.schema';
 import { Payment, PaymentDocument } from 'src/comman/schema/payment.schema';
 import { Setting, SettingDocument } from 'src/comman/schema/setting.schema';
-import { PlatformEarningCollection, PlatformEarningDocument } from 'src/comman/schema/platform-earning.schema';
-import { TotalRideEarning, TotalRideEarningDocument } from 'src/comman/schema/total.earning.schema';
+import { EarningsStatus, PlatformEarningCollection, PlatformEarningDocument } from 'src/comman/schema/platform-earning.schema';
 
 @Injectable()
 export class RideService {
@@ -51,8 +50,8 @@ export class RideService {
     @InjectModel(DriverEarning.name) private readonly driverEarningModel: Model<DriverEarningDocument>,
     @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Setting.name) private readonly settingModel: Model<SettingDocument>,
-    @InjectModel(PlatformEarningCollection.name) private readonly plateformEarningModel:Model<PlatformEarningDocument>,
-    @InjectModel(TotalRideEarning.name) private readonly totalEarningModel:Model<TotalRideEarningDocument>,
+    @InjectModel(PlatformEarningCollection.name) private readonly plateformEarningModel: Model<PlatformEarningDocument>,
+
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
@@ -172,7 +171,6 @@ export class RideService {
     timers.driverTimeouts.forEach((t) => clearTimeout(t));
     this.rideTimers.delete(rideId);
   }
-
   private calculateFare(
     distance: number,
     vehicleType: string,
@@ -195,13 +193,11 @@ export class RideService {
       promoCode = null,
     } = options;
 
-
-    // find basePrice per km in vehical type
+    // --- base rates & gst ---
     const baseRates = {
       bike: settings.bikeBaseFare,
       car: settings.carBaseFare,
     };
-    // find gstRate per km in vehical type
     const gstRates = {
       bike: settings.bikeGstPercent,
       car: settings.carGstPercent,
@@ -212,68 +208,74 @@ export class RideService {
     const waitingChargePerMin = settings.waitingChargePerMin;
     const parkingFee = settings.parkingFee;
     const tollPricePerKm = settings.tollPricePerKm;
-    // calculate the base fare price including the distance and base of vehicale base rates
-    let baseFare = distance * baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
 
-    // add surgecharge price
+    // --- Base Fare ---
+    let baseFare =
+      distance *
+      baseRates[vehicleType.toLowerCase() as keyof typeof baseRates];
+
+    // --- Adjustments ---
     const surgeCharge = baseFare * (surgeMultiplier - 1);
-    // find the night charge
     const nightCharge = isNight ? baseFare * (nightChargePercent / 100) : 0;
     const waitingCharge = waitingTime * waitingChargePerMin;
     const tollFee = hasTolls ? distance * tollPricePerKm : 0;
 
-    const subTotal = baseFare + surgeCharge + nightCharge + waitingCharge + tollFee + (hasParking ? parkingFee : 0);
+    // --- Subtotal before discounts ---
+    let subTotal =
+      baseFare +
+      surgeCharge +
+      nightCharge +
+      waitingCharge +
+      tollFee +
+      (hasParking ? parkingFee : 0);
 
-    let promoDiscount = 0;
+    // --- Discounts ---
+    let promoDiscount = promoCode ? subTotal * 0.1 : 0;
     let referralDiscount = 0;
-    if (promoCode) promoDiscount = subTotal * 0.1;
 
-    const gstPercent = gstRates[vehicleType.toLowerCase() as keyof typeof gstRates];
-    const gstAmount = (subTotal - promoDiscount - referralDiscount) * (gstPercent / 100);
-    const platformFee = (subTotal - promoDiscount - referralDiscount) * (platformFeePercent / 100);
+    // --- After Discounts ---
+    const discountedSubTotal = subTotal - promoDiscount - referralDiscount;
 
-    const totalFare = subTotal + gstAmount + platformFee - promoDiscount - referralDiscount;
-    const driverEarnings = (baseFare + surgeCharge + nightCharge + waitingCharge) * 0.8;
+    // --- GST ---
+    const gstPercent =
+      gstRates[vehicleType.toLowerCase() as keyof typeof gstRates];
+    const gstAmount = discountedSubTotal * (gstPercent / 100);
 
+    // --- Platform Fee (deducted from subtotal) ---
+    const platformFee = discountedSubTotal * (platformFeePercent / 100);
+
+    // --- Total Fare (user pays) ---
+    const totalFare = discountedSubTotal + gstAmount;
+
+    // --- Driver Earnings ---
+    const driverEarnings = discountedSubTotal - platformFee;
+
+    // --- Return consistent result ---
     return {
-      baseFare,
-      gstAmount,
-      platformFee,
-      surgeCharge,
-      nightCharge,
-      tollFee,
-      parkingFee: hasParking ? parkingFee : 0,
-      waitingCharge,
-      bonusAmount: 0,
-      referralDiscount,
-      promoDiscount,
-      subTotal,
       totalFare: Math.round(totalFare),
       driverEarnings: Math.round(driverEarnings),
-      platformEarnings: Math.round(platformFee),
+      platformEarnings: Math.round(platformFee), // top level for admin use
       fareBreakdown: {
         baseFare,
-        gstAmount,
-        platformFee,
         surgeCharge,
         nightCharge,
+        waitingCharge,
         tollFee,
         parkingFee: hasParking ? parkingFee : 0,
-        waitingCharge,
-        bonusAmount: 0,
-        referralDiscount,
-        promoDiscount,
         subTotal,
+        promoDiscount,
+        referralDiscount,
+        discountedSubTotal,
+        gstAmount,
+        platformFee: Math.round(platformFee),
+        bonusAmount: 0, // keep in schema
         totalFare: Math.round(totalFare),
       },
     };
   }
 
-
-
   private async updateDriverRating(driverId: Types.ObjectId): Promise<void> {
-    const ratings = await this.rideRatingModel.find({ driver: driverId });
-    console.log("ratings", ratings)
+    const ratings = await this.rideRatingModel.find({ driver: driverId })
     if (ratings.length > 0) {
       const averageRating = ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length;
 
@@ -283,6 +285,28 @@ export class RideService {
       );
     }
   }
+
+  private async recordPlatformEarning(
+    rideId: string,
+    driverId: Types.ObjectId,
+    userId: Types.ObjectId,
+    paymentId: Types.ObjectId | string,
+    amount: number,
+    rideStatus: string
+  ) {
+    const earning = await this.plateformEarningModel.create({
+      rideId,
+      driverId,
+      userId,
+      paymentId,
+      amount,
+      status: EarningsStatus.PAID,
+      rideStatus
+    });
+    return earning;
+  }
+
+
 
   /** --- Ride Methods --- */
 
@@ -300,37 +324,31 @@ export class RideService {
     ) {
       throw new BadRequestException('Invalid coordinates format');
     }
+
     const [lon1, lat1] = pickupLocationCoordinates;
     const [lon2, lat2] = dropoffLocationCoordinates;
+
     if (lon1 < -180 || lon1 > 180 || lat1 < -90 || lat1 > 90 || lon2 < -180 || lon2 > 180 || lat2 < -90 || lat2 > 90) {
       throw new BadRequestException('Coordinates out of valid range');
     }
 
+    // Fetch settings
     const settings = await this.settingModel.findOne().select('-adminId -__v -_id -createdAt -updatedAt -refundPolicy');
     if (!settings) throw new Error('Settings not found!');
-    console.log("setting data:", settings)
+    console.log('setting data:', settings);
 
+    // Calculate distance & fare
     const distance = this.getDistanceKm(pickupLocationCoordinates, dropoffLocationCoordinates);
-    const fareDetails = this.calculateFare(distance, vehicleType, settings,{});
-
+    const fareDetails = this.calculateFare(distance, vehicleType, settings, {});
 
     const {
-      baseFare,
-      gstAmount,
-      platformFee,
-      tollFee,
-      surgeCharge,
-      nightCharge,
-      waitingCharge,
-      parkingFee,
-      promoDiscount,
-      referralDiscount,
       totalFare,
       driverEarnings,
       platformEarnings,
-      fareBreakdown,
+      fareBreakdown
     } = fareDetails;
 
+    // Create temporary ride
     const newRide = await this.TemporyRideModel.create({
       pickupLocation: { type: 'Point', coordinates: pickupLocationCoordinates },
       dropoffLocation: { type: 'Point', coordinates: dropoffLocationCoordinates },
@@ -345,9 +363,10 @@ export class RideService {
       status: 'processing',
       paymentStatus: 'unpaid',
       eligibleDrivers: [],
-      otp: crypto.randomInt(1000, 9999), 
+      otp: crypto.randomInt(1000, 9999),
     });
 
+    // Aggregate ride details for response
     const rideDetails = await this.TemporyRideModel.aggregate([
       { $match: { _id: newRide._id } },
       {
@@ -373,15 +392,17 @@ export class RideService {
           platformEarnings: 1,
           fareBreakdown: 1,
           paymentStatus: 1,
-          
+          otp: 1,
         },
       },
     ]);
 
+    // Send ride request to nearby drivers
     await this.sendRideRequestToDrivers(newRide);
 
-    return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, newRide);
+    return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK, rideDetails[0]);
   }
+
 
   async acceptRide(rideId: string, request: any): Promise<ApiResponse<any>> {
     const driver = request.user;
@@ -423,7 +444,7 @@ export class RideService {
       platformEarnings: tempRide.platformEarnings,
       fareBreakdown: tempRide.fareBreakdown,
       status: 'accepted',
-      otp:tempRide.otp,
+      otp: tempRide.otp,
       acceptedAt: new Date(),
     });
 
@@ -438,45 +459,46 @@ export class RideService {
   }
 
   async driverArrive(rideId: string, request: any): Promise<ApiResponse<any>> {
-  if (!rideId) throw new BadRequestException('Ride ID is required');
-  if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid Ride ID format');
+    if (!rideId) throw new BadRequestException('Ride ID is required');
+    if (!Types.ObjectId.isValid(rideId)) throw new BadRequestException('Invalid Ride ID format');
 
-  const driver = request.user;
-  if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not authorized as a driver');
+    const driver = request.user;
+    if (!driver || driver.role !== 'driver') throw new UnauthorizedException('You are not authorized as a driver');
 
-  const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
-  if (!ride) throw new NotFoundException('Ride not found');
-  if (ride.driver?._id.toString() !== driver._id.toString()) throw new UnauthorizedException('You are not assigned to this ride');
-  if (ride.status !== 'accepted') throw new BadRequestException(`Ride cannot be marked as arrived from current status: ${ride.status}`);
+    const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
+    if (!ride) throw new NotFoundException('Ride not found');
+    if (ride.driver?._id.toString() !== driver._id.toString()) throw new UnauthorizedException('You are not assigned to this ride');
 
-  ride.status = 'arrived';
-  ride.arrivedAt = new Date();
-  await ride.save();
+    if (ride.status !== 'accepted') throw new BadRequestException(`Ride cannot be marked as arrived from current status: ${ride.status}`);
 
-  const user = ride.bookedBy;
+    ride.status = 'arrived';
+    ride.arrivedAt = new Date();
+    await ride.save();
 
-  const otp = ride.otp;
-  await retry(async () => {
-    await this.twilioClient.messages.create({
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: process.env.TWILIO_MY_NUMBER,
-      body: `Your ride OTP is ${otp}.`,
+    const user = ride.bookedBy;
+
+    const otp = ride.otp;
+    await retry(async () => {
+      await this.twilioClient.messages.create({
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: process.env.TWILIO_MY_NUMBER,
+        body: `Your ride OTP is ${otp}.`,
+      });
     });
-  });
 
-  this.rideGateway.sendDriverArrived(user._id.toString(), {
-    rideId: ride._id,
-    message: 'Driver has arrived at your location',
-    driver: ride.driver,
-    arrivedAt: ride.arrivedAt,
-  });
+    this.rideGateway.sendDriverArrived(user._id.toString(), {
+      rideId: ride._id,
+      message: 'Driver has arrived at your location',
+      driver: ride.driver,
+      arrivedAt: ride.arrivedAt,
+    });
 
-  return new ApiResponse(true, 'Driver arrival recorded successfully!', HttpStatus.OK, {
-    rideId: ride._id,
-    status: ride.status,
-    arrivedAt: ride.arrivedAt,
-  });
-}
+    return new ApiResponse(true, 'Driver arrival recorded successfully!', HttpStatus.OK, {
+      rideId: ride._id,
+      status: ride.status,
+      arrivedAt: ride.arrivedAt,
+    });
+  }
 
   async verifyRideOtp(rideId: string, request: any, verifyRideOtpDto: VerifyRideOtpDto, role: Role): Promise<ApiResponse<any>> {
     const user = request.user;
@@ -491,28 +513,7 @@ export class RideService {
 
     if (!ride.otp) throw new BadRequestException('No OTP found for this ride');
     if (ride.otp !== verifyRideOtpDto.otp) throw new BadRequestException('Invalid OTP');
-    if (ride.status === 'arrived' && ride.arrivedAt) {
-      const waitingTimeMinutes = (Date.now() - new Date(ride.arrivedAt).getTime()) / (1000 * 60);
-      if (waitingTimeMinutes > 5) {
-        const waitingChargePerMin = parseFloat(process.env.WAITING_CHARGE_PER_MIN ?? '1');
-        const additionalWaitingCharge = Math.floor(waitingTimeMinutes - 5) * waitingChargePerMin;
 
-        const fareDetails = this.calculateFare(ride.distance, ride.vehicleType, {
-          isNight: ride.fareBreakdown.nightCharge > 0,
-          hasTolls: ride.fareBreakdown.tollFee > 0,
-          hasParking: ride.fareBreakdown.parkingFee > 0,
-          waitingTime: ride.fareBreakdown.waitingCharge + additionalWaitingCharge,
-          surgeMultiplier: 1,
-        });
-
-        ride.fareBreakdown = fareDetails.fareBreakdown;
-        ride.TotalFare = fareDetails.totalFare;
-        ride.driverEarnings = fareDetails.driverEarnings;
-        ride.platformEarnings = fareDetails.platformEarnings;
-
-
-      }
-    }
 
     ride.status = 'started';
     ride.otp = 0;
@@ -556,7 +557,7 @@ export class RideService {
       throw new BadRequestException("Payment refund not created")
     }
 
-   const earning = await this.driverService.recordDriverEarning(
+    const earning = await this.driverService.recordDriverEarning(
       rideId,
       ride.driver?._id,
       ride.bookedBy?._id,
@@ -575,7 +576,17 @@ export class RideService {
       },
       { new: true, upsert: true }
     );
-    
+
+    await this.recordPlatformEarning(
+      rideId,
+      ride.driver,
+      ride.bookedBy,
+      ride.paymentId as any,
+      response.platformEarning,
+      ride.status
+    )
+    this.logger.log(`Plateform Earning record...`)
+
     ride.driverEarnings = earning.amount
     ride.platformEarnings = response.platformEarning
 
@@ -598,19 +609,37 @@ export class RideService {
     const ride = await this.rideModel.findById(rideId).populate('bookedBy driver');
     if (!ride) throw new NotFoundException('Ride not found');
 
-    const user = request.user;
-    if (!user || user._id.toString() !== ride.bookedBy._id.toString())
+    if (!request.user || request.user._id.toString() !== ride.bookedBy._id.toString())
       throw new UnauthorizedException('Not authorized');
 
-    // if (ride.status !== 'started') throw new BadRequestException('Ride is not in a state to pay for');
     if (ride.paymentStatus === 'paid') throw new BadRequestException('Ride already paid');
 
-    const totalAmount = ride.TotalFare;
+    const extraMinutes =
+      ride.status === 'arrived' && ride.arrivedAt
+        ? Math.max(0, Math.floor((Date.now() - new Date(ride.arrivedAt).getTime()) / (1000 * 60) - 5))
+        : 0;
+
+    const settings = await this.settingModel.findOne();
+    if (!settings) throw new BadRequestException('Settings not found');
+
+    const fareDetails = this.calculateFare(
+      ride.distance ?? 0,
+      ride.vehicleType ?? 'default',
+      settings,
+      { waitingTime: extraMinutes }
+    );
+
+    // Update ride with recalculated fare
+    ride.TotalFare = fareDetails.totalFare;
+    ride.driverEarnings = fareDetails.driverEarnings;
+    ride.platformEarnings = fareDetails.platformEarnings;
+    ride.fareBreakdown = fareDetails.fareBreakdown;
+    await ride.save();
 
     const successUrl = `${process.env.FRONTEND_URL}/payment-success?rideId=${rideId}`;
     const cancelUrl = `${process.env.FRONTEND_URL}/payment-cancel?rideId=${rideId}`;
 
-    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, totalAmount, rideId);
+    const session = await this.paymentService.createCheckoutSession(successUrl, cancelUrl, ride.TotalFare, rideId);
 
     return new ApiResponse(true, 'Checkout session created', HttpStatus.OK, { url: session });
   }
@@ -702,24 +731,7 @@ export class RideService {
       ride.completedAt = new Date();
       await ride.save();
 
-      try {
-        const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
-        if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
-          throw new BadRequestException('PDF buffer not created');
-        }
 
-        const email = 'mayank8355@gmail.com';
-        const subject = 'Ride Completed - Your Invoice';
-        await this.mailService.sendPdf({ email, subject, pdfBuffer });
-
-        this.logger.log(`Invoice email sent successfully to ${email}`);
-      } catch (error) {
-        this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
-        this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
-          rideId: ride._id,
-          message: 'Failed to send invoice email. Please contact support.',
-        });
-      }
 
       const paymentId = ride.paymentId ? ride.paymentId : new Types.ObjectId();
       await this.driverService.recordDriverEarning(
@@ -744,6 +756,15 @@ export class RideService {
 
       this.logger.log(`Driver payment updated: ${JSON.stringify(driverPayment)}`);
 
+      await this.recordPlatformEarning(
+        rideId,
+        ride.driver,
+        ride.bookedBy,
+        ride.paymentId as any,
+        ride.platformEarnings,
+        ride.status
+      )
+      this.logger.log(`Plateform Earning record...`)
 
       this.rideGateway.sendRideCompleted(ride.bookedBy._id.toString(), {
         rideId: ride._id,
@@ -756,6 +777,25 @@ export class RideService {
           rideId: ride._id,
           message: 'Ride completed successfully',
           earnings: ride.driverEarnings,
+        });
+      }
+
+      try {
+        const pdfBuffer = await this.invoiceService.generateInvoice(rideId);
+        if (!pdfBuffer || !(pdfBuffer instanceof Buffer)) {
+          throw new BadRequestException('PDF buffer not created');
+        }
+
+        const email = 'mayank8355@gmail.com';
+        const subject = 'Ride Completed - Your Invoice';
+        await this.mailService.sendPdf({ email, subject, pdfBuffer });
+
+        this.logger.log(`Invoice email sent successfully to ${email}`);
+      } catch (error) {
+        this.logger.error(`Failed to generate or send invoice email: ${error.message}`);
+        this.rideGateway.sendRideTerminated(ride.bookedBy._id.toString(), {
+          rideId: ride._id,
+          message: 'Failed to send invoice email. Please contact support.',
         });
       }
 

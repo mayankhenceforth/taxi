@@ -31,6 +31,7 @@ export interface QRCodeData {
   promoDiscount?: number;
   driverEarnings?: number;
   platformEarnings?: number;
+  rideDuration?:string
 }
 export interface ReportData {
   total: number;

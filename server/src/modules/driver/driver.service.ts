@@ -140,6 +140,7 @@ export class DriverService {
     return earning;
   }
 
+
    async payDriver(driverId: string, rides: RideDocument[], payoutDetails: any) {
     const totalEarnings = rides.reduce((sum, r) => sum + (r.driverEarnings || 0), 0);
 

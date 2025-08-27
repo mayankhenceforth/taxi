@@ -24,7 +24,6 @@ import { DriverEarning, DriverEarningSchema } from '../schema/driver-earnings.sc
 import { DriverPayment, DriverPaymentSchema } from '../schema/DriverPaymentInfo.schema';
 import { Setting, SettingSchema } from '../schema/setting.schema';
 import { PlatformEarningCollection, PlatformEarningSchema } from '../schema/platform-earning.schema';
-import { TotalRideEarning, TotalRideEarningSchema } from '../schema/total.earning.schema';
 
 @Global()
 @Module({
@@ -41,8 +40,7 @@ import { TotalRideEarning, TotalRideEarningSchema } from '../schema/total.earnin
       {name:Payment.name ,schema:PaymentSchema},
       {name:DriverPayment.name ,schema :DriverPaymentSchema},
       {name:Setting.name ,schema:SettingSchema},
-      {name:PlatformEarningCollection.name ,schema:PlatformEarningSchema},
-      {name:TotalRideEarning.name ,schema:TotalRideEarningSchema}
+      {name:PlatformEarningCollection.name ,schema:PlatformEarningSchema}
     ])
   ],
   exports: [MongooseModule]

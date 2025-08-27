@@ -10,7 +10,8 @@ import { DriverPayment, DriverPaymentDocument } from "../schema/DriverPaymentInf
 import { Payment, PaymentDocument } from "../schema/payment.schema";
 import { DriverPayout } from "../schema/payout.schema";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { Types } from "twilio/lib/rest/content/v1/content";
+import { Types } from "mongoose";
+
 
 
 export class PaymentCronService {
@@ -25,7 +26,7 @@ export class PaymentCronService {
         @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
         @InjectModel(DriverPayout.name) private readonly driverPayoutModel: Model<DriverPaymentDocument>
     ) { }
-    @Cron('0 12 * * 0')
+    @Cron('0 0 * * 0')
     async payoutDrivers() {
         console.log("payment cron start.....")
         const driverAggregates = await this.rideModel.aggregate([
@@ -63,12 +64,12 @@ export class PaymentCronService {
             driverPayment?: any;
         }> = [];
 
-        console.log("results:",results)
+        console.log("results:", results)
 
         for (const driver of driverAggregates) {
             if (!driver._id) continue;
 
-            // 1️⃣ Get driver's default payout account
+            // Get driver's default payout account
             const payoutDetails = await this.driverPayoutModel.findOne({
                 driverId: driver._id,
                 isActive: true,
@@ -85,11 +86,11 @@ export class PaymentCronService {
             }
 
             // 2️⃣ Update driver earnings documents
-          const earning=   await this.driverEarningModel.updateMany(
+            const earning = await this.driverEarningModel.updateMany(
                 { driverId: driver._id, driverPaymentStatus: "unpaid" },
                 { $set: { driverPaymentStatus: "paid", updatedAt: new Date() } }
             );
-console.log(earning)
+            console.log(earning)
             // 3️⃣ Update ride documents
             await this.rideModel.updateMany(
                 { _id: { $in: driver.rides.map((r: any) => r.rideId) } },
@@ -104,13 +105,13 @@ console.log(earning)
                         payoutMethod: payoutDetails._id,
                         balance: 0,
                         status: "paid",
-                        lastPayoutAmount: driver.totalEarnings,
+                        lastPayoutAmount: driver.balance,
                         lastPayoutDate: new Date(),
-                        //    payoutTransactionId: new Types.ObjectId().toHexString(),
+                        payoutTransactionId: new Types.ObjectId().toString(),
                         remarks: "Payout processed successfully"
                     },
                     $inc: {
-                        totalEarnings: driver.totalEarnings // increment totalEarnings by current payout
+                        totalEarnings: driver.balance // increment totalEarnings by current payout
                     }
                 },
                 { upsert: true, new: true }
