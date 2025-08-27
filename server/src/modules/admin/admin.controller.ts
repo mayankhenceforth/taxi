@@ -24,21 +24,21 @@ export class AdminController {
 
   @Get('users')
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Get all users', 
-    description: 'Retrieve a list of all users in the system. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Get all users',
+    description: 'Retrieve a list of all users in the system. Requires Admin or SuperAdmin role.'
   })
-  @ApiQuery({ 
-    name: 'page', 
-    required: false, 
-    type: Number, 
-    description: 'Page number for pagination' 
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number for pagination'
   })
-  @ApiQuery({ 
-    name: 'limit', 
-    required: false, 
-    type: Number, 
-    description: 'Number of items per page' 
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items per page'
   })
   @ApiResponse({ status: 200, description: 'Successfully retrieved users list' })
   getUsers(@Query() getUsersDto: GetUsersDto) {
@@ -47,9 +47,9 @@ export class AdminController {
 
   @Post("create-admin")
   @Roles(Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Create new admin', 
-    description: 'Create a new admin user. Requires SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Create new admin',
+    description: 'Create a new admin user. Requires SuperAdmin role.'
   })
   @ApiBody({ type: CreateNewEntryDto })
   @ApiResponse({ status: 201, description: 'Admin created successfully' })
@@ -61,9 +61,9 @@ export class AdminController {
 
   @Post("create-user")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Create new user', 
-    description: 'Create a new regular user. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Create new user',
+    description: 'Create a new regular user. Requires Admin or SuperAdmin role.'
   })
   @ApiBody({ type: CreateNewEntryDto })
   @ApiResponse({ status: 201, description: 'User created successfully' })
@@ -75,9 +75,9 @@ export class AdminController {
 
   @Delete("delete-admin/:_id")
   @Roles(Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Delete admin', 
-    description: 'Delete an admin user by ID. Requires SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Delete admin',
+    description: 'Delete an admin user by ID. Requires SuperAdmin role.'
   })
   @ApiParam({ name: '_id', type: String, description: 'MongoDB ObjectId of the admin to delete' })
   @ApiResponse({ status: 200, description: 'Admin deleted successfully' })
@@ -88,9 +88,9 @@ export class AdminController {
 
   @Delete("delete-user/:_id")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Delete user', 
-    description: 'Delete a regular user by ID. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Delete user',
+    description: 'Delete a regular user by ID. Requires Admin or SuperAdmin role.'
   })
   @ApiParam({ name: '_id', type: String, description: 'MongoDB ObjectId of the user to delete' })
   @ApiResponse({ status: 200, description: 'User deleted successfully' })
@@ -101,9 +101,9 @@ export class AdminController {
 
   @Patch("update-admin")
   @Roles(Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Update admin details', 
-    description: 'Update admin user information. Requires SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Update admin details',
+    description: 'Update admin user information. Requires SuperAdmin role.'
   })
   @ApiBody({ type: UpdateEntryDto })
   @ApiResponse({ status: 200, description: 'Admin updated successfully' })
@@ -115,9 +115,9 @@ export class AdminController {
 
   @Patch("update-user")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Update user details', 
-    description: 'Update regular user information. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Update user details',
+    description: 'Update regular user information. Requires Admin or SuperAdmin role.'
   })
   @ApiBody({ type: UpdateEntryDto })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
@@ -129,9 +129,9 @@ export class AdminController {
 
   @Get("all_ride")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Get all rides', 
-    description: 'Retrieve details of all rides in the system. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Get all rides',
+    description: 'Retrieve details of all rides in the system. Requires Admin or SuperAdmin role.'
   })
   @ApiResponse({ status: 200, description: 'Successfully retrieved rides list' })
   getRideDetails() {
@@ -140,9 +140,9 @@ export class AdminController {
 
   @Get("all_temp_ride")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Get all temporary rides', 
-    description: 'Retrieve details of all temporary/unsaved rides. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Get all temporary rides',
+    description: 'Retrieve details of all temporary/unsaved rides. Requires Admin or SuperAdmin role.'
   })
   @ApiResponse({ status: 200, description: 'Successfully retrieved temporary rides list' })
   getTemporaryRideDetails() {
@@ -151,18 +151,18 @@ export class AdminController {
 
   @Post("all_ride_with_status")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Get rides by status', 
-    description: 'Retrieve rides filtered by specific status (completed, pending, cancelled, etc.). Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Get rides by status',
+    description: 'Retrieve rides filtered by specific status (completed, pending, cancelled, etc.). Requires Admin or SuperAdmin role.'
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        status: { 
-          type: 'string', 
+        status: {
+          type: 'string',
           example: 'completed',
-          description: 'Ride status to filter by (completed, pending, cancelled, started)' 
+          description: 'Ride status to filter by (completed, pending, cancelled, started)'
         }
       },
       required: ['status'],
@@ -176,14 +176,14 @@ export class AdminController {
 
   @Get("ride_report/:rideId")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Get ride invoice', 
-    description: 'Generate and retrieve a detailed invoice PDF for a specific ride. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Get ride invoice',
+    description: 'Generate and retrieve a detailed invoice PDF for a specific ride. Requires Admin or SuperAdmin role.'
   })
-  @ApiParam({ 
-    name: 'rideId', 
-    type: String, 
-    description: 'MongoDB ObjectId of the ride to generate invoice for' 
+  @ApiParam({
+    name: 'rideId',
+    type: String,
+    description: 'MongoDB ObjectId of the ride to generate invoice for'
   })
   @ApiResponse({ status: 200, description: 'Successfully generated ride invoice' })
   @ApiResponse({ status: 404, description: 'Ride not found' })
@@ -193,13 +193,13 @@ export class AdminController {
 
   @Get("total_earning_report/:filter")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Generate total earnings report', 
-    description: 'Generate a PDF report of total earnings filtered by time period. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Generate total earnings report',
+    description: 'Generate a PDF report of total earnings filtered by time period. Requires Admin or SuperAdmin role.'
   })
-  @ApiParam({ 
-    name: 'filter', 
-    type: String, 
+  @ApiParam({
+    name: 'filter',
+    type: String,
     description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
     examples: {
       '1 hour': { value: '1h' },
@@ -210,8 +210,8 @@ export class AdminController {
     }
   })
   @ApiProduces('application/pdf')
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'PDF report generated successfully',
     content: {
       'application/pdf': {
@@ -231,13 +231,13 @@ export class AdminController {
 
   @Get("new_users_report/:filter")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Generate new users report', 
-    description: 'Generate a PDF report of new users registered filtered by time period. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Generate new users report',
+    description: 'Generate a PDF report of new users registered filtered by time period. Requires Admin or SuperAdmin role.'
   })
-  @ApiParam({ 
-    name: 'filter', 
-    type: String, 
+  @ApiParam({
+    name: 'filter',
+    type: String,
     description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
     examples: {
       '1 hour': { value: '1h' },
@@ -248,8 +248,8 @@ export class AdminController {
     }
   })
   @ApiProduces('application/pdf')
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'PDF report generated successfully',
     content: {
       'application/pdf': {
@@ -269,13 +269,13 @@ export class AdminController {
 
   @Get("new_rides_report/:filter")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Generate new rides report', 
-    description: 'Generate a PDF report of new rides created filtered by time period. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Generate new rides report',
+    description: 'Generate a PDF report of new rides created filtered by time period. Requires Admin or SuperAdmin role.'
   })
-  @ApiParam({ 
-    name: 'filter', 
-    type: String, 
+  @ApiParam({
+    name: 'filter',
+    type: String,
     description: 'Time filter for the report (1h, 1d, 1w, 1m, or empty for all time)',
     examples: {
       '1 hour': { value: '1h' },
@@ -286,8 +286,8 @@ export class AdminController {
     }
   })
   @ApiProduces('application/pdf')
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'PDF report generated successfully',
     content: {
       'application/pdf': {
@@ -307,14 +307,14 @@ export class AdminController {
 
   @Post("payment_refund/:rideId")
   @Roles(Role.Admin, Role.SuperAdmin)
-  @ApiOperation({ 
-    summary: 'Process payment refund', 
-    description: 'Initiate a refund for a specific ride payment. Requires Admin or SuperAdmin role.' 
+  @ApiOperation({
+    summary: 'Process payment refund',
+    description: 'Initiate a refund for a specific ride payment. Requires Admin or SuperAdmin role.'
   })
-  @ApiParam({ 
-    name: 'rideId', 
-    type: String, 
-    description: 'MongoDB ObjectId of the ride to process refund for' 
+  @ApiParam({
+    name: 'rideId',
+    type: String,
+    description: 'MongoDB ObjectId of the ride to process refund for'
   })
   @ApiResponse({ status: 200, description: 'Refund processed successfully' })
   @ApiResponse({ status: 400, description: 'Bad request - Refund cannot be processed' })
@@ -324,35 +324,34 @@ export class AdminController {
     return this.adminService.processRefund(rideId);
   }
 
-  
-@Post("pay_driver/:driverId")
-@Roles(Role.Admin, Role.SuperAdmin)
-@ApiOperation({ 
-  summary: 'Pay driver earnings', 
-  description: 'Initiates a payout to a driver for their completed rides. Requires Admin or SuperAdmin role.' 
-})
-@ApiResponse({ status: 200, description: 'Driver paid successfully' })
-@ApiResponse({ status: 400, description: 'Bad request - Payment cannot be processed' })
-@ApiResponse({ status: 404, description: 'Driver not found' })
-@ApiResponse({ status: 500, description: 'Internal server error - Payment gateway issue' })
-payDriver() {
-  return this.adminService.payAllDrivers();
+
+  @Post("pay_driver/:driverId")
+  @Roles(Role.Admin, Role.SuperAdmin)
+  @ApiOperation({
+    summary: 'Pay driver earnings',
+    description: 'Initiates a payout to a driver for their completed rides. Requires Admin or SuperAdmin role.'
+  })
+  @ApiResponse({ status: 200, description: 'Driver paid successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request - Payment cannot be processed' })
+  @ApiResponse({ status: 404, description: 'Driver not found' })
+  @ApiResponse({ status: 500, description: 'Internal server error - Payment gateway issue' })
+  payDriver() {
+    return this.adminService.payAllDrivers();
+  }
+
+  // Settings endpoints
+@Post('settings/:superAdminId')
+@Roles(Role.SuperAdmin)
+@ApiOperation({ summary: 'Create or update settings' })
+@ApiParam({ name: 'superAdminId', type: String, description: 'SuperAdmin ID' })
+upsertSettings(
+  @Body() createSettingDto: CreateSettingDto,
+  @Param('superAdminId') superAdminId: string,
+) {
+  console.log("superAdmin Id:", superAdminId);
+  return this.adminService.upsertSettings(superAdminId, createSettingDto);
 }
 
-// Settings endpoints
-  @Post('settings')
-  @Roles(Role.SuperAdmin)
-  @ApiOperation({
-    summary: 'Create or update settings',
-    description: 'Create a new settings document if none exists, or update the existing one. Requires SuperAdmin role.',
-  })
-  @ApiBody({ type: CreateSettingDto })
-  @ApiResponse({ status: 201, description: 'Settings created successfully' })
-  @ApiResponse({ status: 200, description: 'Settings updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
-  upsertSettings(@Body() createSettingDto: CreateSettingDto,@Param('superadminId') superAdminId: string) {
-    return this.adminService.upsertSettings(superAdminId,createSettingDto);
-  }
 
   @Get('settings')
   @Roles(Role.Admin, Role.SuperAdmin)

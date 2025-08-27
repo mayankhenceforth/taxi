@@ -14,6 +14,7 @@ import { DriverPayout, DriverPayoutDocument } from '../schema/payout.schema';
 import { ApiResponse } from '@nestjs/swagger';
 import { DriverPayment, DriverPaymentDocument } from '../schema/DriverPaymentInfo.schema';
 import { privateEncrypt } from 'crypto';
+import { Setting, SettingDocument } from '../schema/setting.schema';
 
 @Injectable()
 export class PaymentService {
@@ -25,7 +26,8 @@ export class PaymentService {
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
     @InjectModel(DriverPayout.name) private readonly driverPayoutModel: Model<DriverPayoutDocument>,
     @InjectModel(DriverEarning.name) private readonly driverEarningModel: Model<DriverEarningDocument>,
-    @InjectModel(DriverPayment.name) private readonly driverPaymentModel:Model<DriverPaymentDocument>,
+    @InjectModel(DriverPayment.name) private readonly driverPaymentModel: Model<DriverPaymentDocument>,
+    @InjectModel(Setting.name) private readonly settingModel: Model<SettingDocument>,
     private readonly invoiceService: InvoiceService,
     private readonly cloudinaryService: CloudinaryService,
   ) {
@@ -200,17 +202,10 @@ export class PaymentService {
   async handleRefund(rideId: string) {
     const ride = await this.rideModel.findById(rideId);
     if (!ride) throw new HttpException('Ride not found', HttpStatus.NOT_FOUND);
-
-    if (!ride.paymentId) {
-      throw new BadRequestException('Payment intent ID is required for refund');
-    }
-
+    if (!ride.paymentId) throw new BadRequestException('Payment intent ID is required for refund');
     if (ride.status === 'started' || ride.status === 'completed') {
-      throw new BadRequestException(
-        'Refund not allowed once ride has started or completed',
-      );
+      throw new BadRequestException('Refund not allowed once ride has started or completed');
     }
-
     if (ride.paymentStatus === 'refunded' || ride.paymentStatus === 'partially_refunded') {
       throw new BadRequestException('Refund already processed for this ride');
     }
@@ -220,61 +215,53 @@ export class PaymentService {
       throw new BadRequestException('Payment information not found for this ride');
     }
 
-    let refundAmount = 0;
-    let refundPercentage = 0;
+    // ✅ Load settings
+    const settings = await this.settingModel.findOne();
+    if (!settings) throw new Error("SuperAdmin settings not found");
+
+    const refundPolicy = settings.refundPolicy;
+    let refundPercent = 0;
+    let driverEarningPercent = 0;
+    let platformEarningPercent = 0;
     let refundReason = '';
-    let driverEarningPercentage = 0
-    let driverEarningAmount = 0
-    let plateformEarning = 0
 
     const now = new Date();
-    const createdAt = new Date(ride.createdAt);
-    const diffMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000);
+    const acceptedAt = new Date(ride?.acceptedAt as Date);
+    const diffMinutes = Math.floor((now.getTime() - acceptedAt.getTime()) / 60000);
 
+    // ✅ Determine policy branch
     if (ride.cancelledBy === 'Driver') {
-
-      if (ride.status == "arrived") {
-        refundPercentage = 80;
-        driverEarningPercentage = 15
-        refundReason = 'Driver Arrived the location and cencelled'
-        let platformEarningsPerscentage = 100 - refundPercentage - driverEarningPercentage
-        plateformEarning = (Number(ride.TotalFare) * platformEarningsPerscentage) / 100
-        refundAmount = (Number(ride.TotalFare) * refundPercentage) / 100;
-        driverEarningAmount = (Number(ride.TotalFare) * driverEarningPercentage) / 100
+      if (ride.status === 'arrived') {
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.driverCancellation.arrived);
+        refundReason = 'Driver arrived then cancelled';
       } else {
-        refundAmount = Number(ride.TotalFare);
-        refundPercentage = 100;
-        driverEarningPercentage = 0
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.driverCancellation.default);
         refundReason = 'Cancelled by Driver';
       }
     } else if (ride.cancelledBy === 'User') {
       if (diffMinutes <= 10) {
-        refundPercentage = 85;
-        driverEarningPercentage = 10
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.userCancellation.within10Min);
         refundReason = 'Cancelled by User within 10 min';
       } else if (diffMinutes <= 15) {
-        refundPercentage = 80;
-        driverEarningPercentage = 15
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.userCancellation.within15Min);
         refundReason = 'Cancelled by User within 15 min';
       } else if (diffMinutes <= 20) {
-        refundPercentage = 75;
-        driverEarningPercentage = 20
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.userCancellation.within20Min);
         refundReason = 'Cancelled by User within 20 min';
       } else {
-        driverEarningPercentage = 40
-        refundPercentage = 50;
+        ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.userCancellation.after20Min);
         refundReason = 'Cancelled by User after 20 min';
       }
-
-      let platformEarningsPerscentage = 100 - refundPercentage - driverEarningPercentage
-      plateformEarning = (Number(ride.TotalFare) * platformEarningsPerscentage) / 100
-      refundAmount = (Number(ride.TotalFare) * refundPercentage) / 100;
-      driverEarningAmount = (Number(ride.TotalFare) * driverEarningPercentage) / 100
     } else {
-      refundPercentage = 100;
-      refundAmount = Number(ride.TotalFare);
+      ({ refundPercent, driverEarningPercent, platformEarningPercent } = refundPolicy.systemCancellation);
       refundReason = 'Cancelled by System';
     }
+
+    // ✅ Calculate amounts
+    const totalFare = Number(ride.TotalFare);
+    const refundAmount = (totalFare * refundPercent) / 100;
+    const driverEarningAmount = (totalFare * driverEarningPercent) / 100;
+    const platformEarning = (totalFare * platformEarningPercent) / 100;
 
     if (refundAmount <= 0) {
       paymentInfo.refundStatus = 'not_applicable';
@@ -282,16 +269,25 @@ export class PaymentService {
       throw new BadRequestException('No refund applicable for this ride');
     }
 
+    // ✅ Call Stripe
     const refund = await this.stripe.refunds.create({
       payment_intent: paymentInfo.paymentIntentId,
       amount: Math.round(refundAmount * 100),
     });
 
-    ride.paymentStatus = refundPercentage === 100 ? 'refunded' : 'partially_refunded';
+    // ✅ Update ride
+    ride.paymentStatus = refundPercent === 100 ? 'refunded' : 'partially_refunded';
     ride.refundedAt = new Date();
+    ride.driverEarnings = driverEarningAmount;
+    ride.platformEarnings = platformEarning;
+    ride.refundPercentage = refundPercent;
+    ride.refundReason = refundReason;
+    ride.refundAmount = refundAmount
     await ride.save();
+
+    // ✅ Update payment info
     paymentInfo.refundAmount = refundAmount;
-    paymentInfo.refundPercentage = refundPercentage;
+    paymentInfo.refundPercentage = refundPercent;
     paymentInfo.refundReason = refundReason;
     paymentInfo.refundStatus = 'processed';
     paymentInfo.refundId = refund.id;
@@ -303,12 +299,13 @@ export class PaymentService {
       refundId: refund.id,
       status: refund.status,
       refundedAmount: refundAmount,
-      refundPercentage,
-      driverEarningAmount,
-      driverEarningPercentage,
-      plateformEarning
+      refundPercentage: refundPercent,
+      driverEarning:driverEarningAmount,
+      driverEarningPercentage: driverEarningPercent,
+      platformEarning,
     };
   }
+
 
 
   /** Create Customer */
@@ -433,110 +430,107 @@ export class PaymentService {
 
 
   async payoutDrivers() {
-  const driverAggregates = await this.rideModel.aggregate([
-    {
-      $match: {
-        status: { $in: ["completed", "cancelled"] },
-        driverPaymentStatus: { $ne: "paid" }
-      }
-    },
-    {
-      $group: {
-        _id: "$driver",
-        totalEarnings: { $sum: "$driverEarnings" },
-        rides: {
-          $push: {
-            rideId: "$_id",
-            status: "$status",
-            driverEarnings: "$driverEarnings",
-            cancelledBy: "$cancelledBy"
+    const driverAggregates = await this.rideModel.aggregate([
+      {
+        $match: {
+          status: { $in: ["completed", "cancelled"] },
+          driverPaymentStatus: { $ne: "paid" }
+        }
+      },
+      {
+        $group: {
+          _id: "$driver",
+          totalEarnings: { $sum: "$driverEarnings" },
+          rides: {
+            $push: {
+              rideId: "$_id",
+              status: "$status",
+              driverEarnings: "$driverEarnings",
+              cancelledBy: "$cancelledBy"
+            }
           }
         }
       }
-    }
-  ]);
+    ]);
 
-  const results: Array<{
-    driverId: any;
-    message?: string;
-    totalEarnings?: number;
-    payoutMethod?: string;
-    payoutAccount?: string;
-    ridesPaid?: number;
-    driverPayment?: any;
-  }> = [];
+    const results: Array<{
+      driverId: any;
+      message?: string;
+      totalEarnings?: number;
+      payoutMethod?: string;
+      payoutAccount?: string;
+      ridesPaid?: number;
+      driverPayment?: any;
+    }> = [];
 
-  for (const driver of driverAggregates) {
-    if (!driver._id) continue;
+    for (const driver of driverAggregates) {
+      if (!driver._id) continue;
 
-    // 1️⃣ Get driver's default payout account
-    const payoutDetails = await this.driverPayoutModel.findOne({
-      driverId: driver._id,
-      isActive: true,
-      isDefault: true
-    });
+      // 1️⃣ Get driver's default payout account
+      const payoutDetails = await this.driverPayoutModel.findOne({
+        driverId: driver._id,
+        isActive: true,
+        isDefault: true
+      });
 
-    if (!payoutDetails) {
+      if (!payoutDetails) {
+        results.push({
+          driverId: driver._id,
+          message: "No payout details found, skipped",
+          totalEarnings: driver.balance
+        });
+        continue;
+      }
+
+      // 2️⃣ Update driver earnings documents
+      await this.driverEarningModel.updateMany(
+        { driverId: driver._id, driverPaymentStatus: "unpaid" },
+        { $set: { driverPaymentStatus: "paid", updatedAt: new Date() } }
+      );
+
+      // 3️⃣ Update ride documents
+      await this.rideModel.updateMany(
+        { _id: { $in: driver.rides.map((r: any) => r.rideId) } },
+        { $set: { driverPaymentStatus: "paid" } }
+      );
+
+      // 4️⃣ Update or create DriverPayment document
+      const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
+        { driverId: driver._id },
+        {
+          $set: {
+            payoutMethod: payoutDetails._id,
+            balance: 0,
+            status: "paid",
+            lastPayoutAmount: driver.totalEarnings,
+            lastPayoutDate: new Date(),
+            payoutTransactionId: new Types.ObjectId().toHexString(),
+            remarks: "Payout processed successfully"
+          },
+          $inc: {
+            totalEarnings: driver.totalEarnings // increment totalEarnings by current payout
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      // Push summary
       results.push({
         driverId: driver._id,
-        message: "No payout details found, skipped",
-        totalEarnings: driver.balance
+        totalEarnings: driver.totalEarnings,
+        payoutMethod: payoutDetails.method,
+        payoutAccount: payoutDetails.accountNumber,
+        ridesPaid: driver.rides.length,
+        driverPayment
       });
-      continue;
     }
 
-    // 2️⃣ Update driver earnings documents
-    await this.driverEarningModel.updateMany(
-      { driverId: driver._id, driverPaymentStatus: "unpaid" },
-      { $set: { driverPaymentStatus: "paid", updatedAt: new Date() } }
-    );
-
-    // 3️⃣ Update ride documents
-    await this.rideModel.updateMany(
-      { _id: { $in: driver.rides.map((r: any) => r.rideId) } },
-      { $set: { driverPaymentStatus: "paid" } }
-    );
-
-    // 4️⃣ Update or create DriverPayment document
-    const driverPayment = await this.driverPaymentModel.findOneAndUpdate(
-  { driverId: driver._id },
-  {
-    $set: {
-      payoutMethod: payoutDetails._id,
-      balance: 0,
-      status: "paid",
-      lastPayoutAmount: driver.totalEarnings,
-      lastPayoutDate: new Date(),
-      payoutTransactionId: new Types.ObjectId().toHexString(),
-      remarks: "Payout processed successfully"
-    },
-    $inc: {
-      totalEarnings: driver.totalEarnings // increment totalEarnings by current payout
-    }
-  },
-  { upsert: true, new: true }
-);
-
-    // 5️⃣ Push summary
-    results.push({
-      driverId: driver._id,
-      totalEarnings: driver.totalEarnings,
-      payoutMethod: payoutDetails.method,
-      payoutAccount: payoutDetails.accountNumber,
-      ridesPaid: driver.rides.length,
-      driverPayment
-    });
+    return {
+      success: true,
+      message: "Driver payouts processed",
+      statusCode: 200,
+      data: results
+    };
   }
-
-  return {
-    success: true,
-    message: "Driver payouts processed",
-    statusCode: 200,
-    data: results
-  };
-}
-
-
-
 
 }

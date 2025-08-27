@@ -535,25 +535,26 @@ export class AdminService {
    async upsertSettings(superAdminId: string, createSettingDto: CreateSettingDto) {
 
     console.log(createSettingDto)
+    console.log("super admin id:",superAdminId)
     // Validate that superAdminId corresponds to a SuperAdmin
-    // const superAdmin = await this.userModel.findOne({
-    //  _id: new Types.ObjectId(superAdminId),
-    //   role: Role.SuperAdmin,
-    // });
+    const superAdmin = await this.userModel.findOne({
+     _id: new Types.ObjectId(superAdminId),
+      role: Role.SuperAdmin,
+    });
 
-    // console.log("superadmin:",superAdmin)
+    console.log("superadmin:",superAdmin)
 
-    // if (!superAdmin) {
-    //   throw new HttpException('SuperAdmin not found or invalid', HttpStatus.FORBIDDEN);
-    // }
+    if (!superAdmin) {
+      throw new HttpException('SuperAdmin not found or invalid', HttpStatus.FORBIDDEN);
+    }
 
     // Validate refund policy percentages
-    // this.validateRefundPolicy(createSettingDto.refundPolicy);
+    this.validateRefundPolicy(createSettingDto.refundPolicy);
 
     // Set adminId to superAdminId in the document
     const setting = await this.settingModel.findOneAndUpdate(
       {}, // Match any document (single document constraint)
-      { $set: { ...createSettingDto, adminId: superAdminId } }, // Include adminId
+      { $set: { ...createSettingDto, adminId: new Types.ObjectId(superAdminId )} }, // Include adminId
       { new: true, upsert: true }, // Create if none exists, return updated document
     );
 

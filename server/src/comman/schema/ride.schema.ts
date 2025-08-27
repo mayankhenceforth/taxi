@@ -77,15 +77,21 @@ export class Ride {
 
   @Prop({
     required: true,
-    enum: ['unpaid', 'paid', 'refunded', 'partially_refunded',"pending"],
+    enum: ['unpaid', 'paid', 'refunded', 'partially_refunded', "pending"],
     default: 'pending'
   })
   paymentStatus: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
 
+  @Prop({
+    enum: ['unpaid', 'paid'],
+    default: "unpaid"
+  })
+  driverPaymentStatus: 'unpaid' | 'paid'
+
   @Prop()
   checkoutSessionId?: string
 
- @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Payment' })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Payment' })
   paymentId?: Types.ObjectId;
 
   @Prop({ type: { type: String, enum: ['Point'], default: 'Point' }, coordinates: { type: [Number], default: [0, 0] } })
@@ -106,8 +112,17 @@ export class Ride {
   @Prop()
   invoiceUrl?: string;
 
-   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'RideRating' })
+  @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'RideRating' })
   ratingId?: Types.ObjectId;
+
+  @Prop({ type: Number })
+  refundAmount?: number;
+
+  @Prop({ type: Number })
+  refundPercentage?: number;
+
+  @Prop()
+  refundReason?: string;
 
   @Prop({ type: Date }) completedAt?: Date;
   @Prop({ type: Date }) startedAt?: Date;
