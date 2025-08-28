@@ -1,123 +1,164 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 function Signup() {
-  const [data, setData] = useState({
-    name: "",
-    contactNumber: "",
+  const [formData, setFormData] = useState({
     email: "",
     password: "",
-    re_password: "",
+    confirmPassword: "",
+    contactNumber: "",
+    countryCode: "+91",
+    countryCodeList: ["+91", "+1", "+44", "+61"],
     role: "user",
-
-    vehicleDetails: {
-      numberPlate: "",
-      type: "car",
-      model: "",
-    },
-    driverLicense: {
-      licenseNumber: "",
-      issueDate: "",
-      expiryDate: "",
-      issuingAuthority: "",
-    },
   });
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleChange = (e, parent) => {
-    const { name, value } = e.target;
+  const API_BASE_URL = "http://localhost:3000/user";
 
-    if (parent) {
-      setData((prev) => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [name]: value,
-        },
-      }));
-    } else {
-      setData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-    if (!data.name || !data.contactNumber || !data.password || !data.re_password) {
-      alert("Please fill all required fields!");
+    if (!formData.email || !formData.password || !formData.confirmPassword || !formData.contactNumber) {
+      setError("Please fill all fields.");
+      setIsLoading(false);
       return;
     }
-    if (data.password !== data.re_password) {
-      alert("Passwords do not match!");
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError("Please enter a valid email address.");
+      setIsLoading(false);
       return;
     }
-    if (data.role === "driver") {
-      if (!data.vehicleDetails.numberPlate || !data.driverLicense.licenseNumber) {
-        alert("Driver must provide vehicle and license details!");
-        return;
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!/^\d{7,15}$/.test(formData.contactNumber)) {
+      setError("Contact number must be 7-15 digits.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/signup`,
+        {
+          email: formData.email,
+          password: formData.password,
+          contactNumber: `${formData.countryCode}${formData.contactNumber}`,
+          role: formData.role,
+        },
+        { timeout: 5000 }
+      );
+      localStorage.setItem("accessToken", response.data.accessToken);
+      navigate(formData.role === "driver" ? "/driver" : "/book-ride");
+    } catch (err) {
+      let errorMessage = "Failed to signup. Please try again.";
+      if (err.response) {
+        switch (err.response.status) {
+          case 400:
+            errorMessage = err.response.data.message || "Invalid signup data.";
+            break;
+          case 409:
+            errorMessage = "Email or contact number already exists.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please try again later.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          default:
+            errorMessage = err.response.data.message || errorMessage;
+        }
+      } else if (err.request) {
+        errorMessage = "Network error. Please check your internet connection.";
       }
+      console.error("Signup error:", err);
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
-    console.log("Signup Data:", data);
-    navigate("/login");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-lg p-8">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
         <h1 className="text-3xl font-bold text-center text-indigo-600 mb-6">
-          🚖 RideNow - Sign Up
+          🚖 Signup
         </h1>
 
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
           <div>
             <label className="block text-gray-600 text-sm mb-1">
-              Full Name <span className="text-red-500">*</span>
+              Email <span className="text-red-500">*</span>
             </label>
             <input
-              type="text"
-              name="name"
-              value={data.name}
+              type="email"
+              name="email"
+              value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your full name"
+              placeholder="Enter your email"
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
             />
           </div>
-
-          {/* Contact Number */}
           <div>
             <label className="block text-gray-600 text-sm mb-1">
               Contact Number <span className="text-red-500">*</span>
             </label>
-            <input
-              type="tel"
-              name="contactNumber"
-              value={data.contactNumber}
-              onChange={handleChange}
-              placeholder="Enter your phone number"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
+            <div className="flex space-x-2">
+              <select
+                name="countryCode"
+                value={formData.countryCode}
+                onChange={handleChange}
+                className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              >
+                {formData.countryCodeList.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="tel"
+                name="contactNumber"
+                value={formData.contactNumber}
+                onChange={handleChange}
+                placeholder="Enter your number"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                required
+              />
+            </div>
           </div>
-
-          {/* Email (Optional) */}
-          <div>
-            <label className="block text-gray-600 text-sm mb-1">Email (Optional)</label>
-            <input
-              type="email"
-              name="email"
-              value={data.email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-
-          {/* Password */}
           <div>
             <label className="block text-gray-600 text-sm mb-1">
               Password <span className="text-red-500">*</span>
@@ -125,34 +166,34 @@ function Signup() {
             <input
               type="password"
               name="password"
-              value={data.password}
+              value={formData.password}
               onChange={handleChange}
-              placeholder="Enter password"
+              placeholder="Enter your password"
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
             />
           </div>
-
-          {/* Re-enter Password */}
           <div>
             <label className="block text-gray-600 text-sm mb-1">
               Confirm Password <span className="text-red-500">*</span>
             </label>
             <input
               type="password"
-              name="re_password"
-              value={data.re_password}
+              name="confirmPassword"
+              value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="Re-enter password"
+              placeholder="Confirm your password"
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+              required
             />
           </div>
-
-          {/* Role */}
           <div>
-            <label className="block text-gray-600 text-sm mb-1">Role</label>
+            <label className="block text-gray-600 text-sm mb-1">
+              Role <span className="text-red-500">*</span>
+            </label>
             <select
               name="role"
-              value={data.role}
+              value={formData.role}
               onChange={handleChange}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             >
@@ -161,108 +202,14 @@ function Signup() {
             </select>
           </div>
 
-          {/* Driver Specific Section */}
-          {data.role === "driver" && (
-            <div className="space-y-6 border-t pt-6 mt-6">
-              <h2 className="text-lg font-semibold text-gray-700">🚘 Vehicle Details</h2>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">
-                  Number Plate <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="numberPlate"
-                  value={data.vehicleDetails.numberPlate}
-                  onChange={(e) => handleChange(e, "vehicleDetails")}
-                  placeholder="e.g. KA01AB1234"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Vehicle Type</label>
-                <select
-                  name="type"
-                  value={data.vehicleDetails.type}
-                  onChange={(e) => handleChange(e, "vehicleDetails")}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                >
-                  <option value="car">Car</option>
-                  <option value="bike">Bike</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Model</label>
-                <input
-                  type="text"
-                  name="model"
-                  value={data.vehicleDetails.model}
-                  onChange={(e) => handleChange(e, "vehicleDetails")}
-                  placeholder="Vehicle Model"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <h2 className="text-lg font-semibold text-gray-700 mt-6">🪪 License Details</h2>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">
-                  License Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="licenseNumber"
-                  value={data.driverLicense.licenseNumber}
-                  onChange={(e) => handleChange(e, "driverLicense")}
-                  placeholder="DL1234567"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Issue Date</label>
-                <input
-                  type="date"
-                  name="issueDate"
-                  value={data.driverLicense.issueDate}
-                  onChange={(e) => handleChange(e, "driverLicense")}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Expiry Date</label>
-                <input
-                  type="date"
-                  name="expiryDate"
-                  value={data.driverLicense.expiryDate}
-                  onChange={(e) => handleChange(e, "driverLicense")}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Issuing Authority</label>
-                <input
-                  type="text"
-                  name="issuingAuthority"
-                  value={data.driverLicense.issuingAuthority}
-                  onChange={(e) => handleChange(e, "driverLicense")}
-                  placeholder="RTO Bangalore"
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Submit */}
           <button
             type="submit"
-            className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition"
+            disabled={isLoading}
+            className={`w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            Sign Up
+            {isLoading ? "Signing up..." : "Signup"}
           </button>
         </form>
 

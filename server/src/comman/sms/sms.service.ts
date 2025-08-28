@@ -17,7 +17,7 @@ export class SmsService {
     private async sendSms(body : string){
         return await this.twilioClient.messages.create({
             from: this.configService.get<string>('TWILIO_PHONE_NUMBER'),
-            to: this.configService.get<string>('TWILIO_MY_NUMBER')!,
+            to: "+918355031299",
             body,
         });
     }

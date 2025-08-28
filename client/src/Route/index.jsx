@@ -1,26 +1,52 @@
-// Route/index.jsx
 import { createBrowserRouter } from "react-router-dom";
-import App from "../App";
+
 import Home from "../component/home";
-import Success from "../component/success";
-import Cancel from "../component/cencel";
 import Login from "../component/auth/login";
 import Signup from "../component/auth/signup";
-import ForgotPassword from "../component/auth/forgot.password";
+import ForgotPassword from "../component/auth/ForgotPassword";
+import BookRide from "../component/comman/BookingRide";
+import DriverLanding from "../component/driver/DriverLandingPage";
+import ProtectedRoute from "../comman/protectedRoute";
 
-const route = createBrowserRouter([
+const router = createBrowserRouter([
   {
     path: "/",
-    element: <App />,
-    children: [
-      { index: true, element: <Home /> },
-      { path: "payment-success", element: <Success /> },
-      { path: "payment-cancel", element: <Cancel /> },
-      { path: "login", element: <Login /> },
-      { path: "signup", element: <Signup /> },
-      { path:"/forgot", element:<ForgotPassword />}
-    ],
+    element: <Home />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/signup",
+    element: <Signup />,
+  },
+  {
+    path: "/forgot",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/book-ride",
+    element: (
+    <ProtectedRoute>
+      <BookRide />
+    </ProtectedRoute>
+        
+      
+    ),
+  },
+  {
+    path: "/driver",
+    element: (
+      <ProtectedRoute >
+    
+    <DriverLanding />
+
+      </ProtectedRoute>
+        
+    
+    ),
   },
 ]);
 
-export default route;
+export default router;
