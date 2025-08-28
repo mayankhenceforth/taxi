@@ -89,7 +89,7 @@ export class User {
 
     @Prop({
         required: false,
-        unique: true,
+        unique: false,
         trim: true,
         lowercase: true,
     })
@@ -158,8 +158,18 @@ export class User {
     })
     rating?: number;
 
-    @Prop({ enum: [true, false] })
-    status: true
+    @Prop({
+        default: true,
+        required: function () { return this.role === "driver"; },
+    })
+    available?: boolean;
+
+    @Prop({
+        enum: ["active", "inactive", "suspended"],
+        default: "active",
+        required: function () { return this.role === "driver"; },
+    })
+    status?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

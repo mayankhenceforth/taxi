@@ -26,8 +26,14 @@ export class Setting  {
   @Prop({ type: Number, required: true, default: 25 })
   nightChargePercent: number;
 
-  @Prop({ type: Number, required: true, default: 1 })
+  @Prop({ type: Number, required: false, default: 1 })
   waitingChargePerMin: number;
+
+  @Prop({ required: true, default: 1 })
+  bikeWaitingChargePerMin: number;
+
+  @Prop({ required: true, default: 2 })
+  carWaitingChargePerMin: number;
 
   @Prop({ type: Number, required: true, default: 30 })
   parkingFee: number;

@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadInterceptor } from 'src/comman/inerceptors/file-upload.interceptor';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ResetPasswordStep1Dto } from './dto/reset-password-step1.dto';
 
 @ApiTags('User')
 @Controller('user')
@@ -76,4 +77,10 @@ export class UserController {
   uploadProfilePic(@Req() request: Request, @UploadedFile() profilePicFile: Express.Multer.File, @Query('id') userId: string) {
     return this.userService.uploadProfilePic(userId, profilePicFile);
   }
+
+//   @Post("resetPasswordStep1")
+//  async reset_password_1st_step(@Body() resetPasswordStep1Dto:ResetPasswordStep1Dto){
+//     const {contactNumber} = resetPasswordStep1Dto
+//     return this.userService.resetPassword1step(contactNumber)
+//   }
 }

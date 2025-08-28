@@ -10,10 +10,10 @@ import { PdfGeneratorService } from './pdf.service';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Ride.name, schema: RideSchema },
-      { name: User.name, schema: UserSchema },
-    ]),
+    // MongooseModule.forFeature([
+    //   { name: Ride.name, schema: RideSchema },
+    //   { name: User.name, schema: UserSchema },
+    // ]),
   ],
   providers: [
     InvoiceService,

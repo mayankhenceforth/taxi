@@ -1,17 +1,17 @@
-import { 
-  BadRequestException, 
-  HttpStatus, 
-  Injectable, 
-  NotAcceptableException, 
-  NotFoundException, 
-  UnauthorizedException 
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  NotAcceptableException,
+  NotFoundException,
+  UnauthorizedException
 } from '@nestjs/common';
 import { SignUpDto } from './dto/sign_up.user.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { 
-  PendingUser, 
-  PendingUserDocument, 
-  User, 
+import {
+  PendingUser,
+  PendingUserDocument,
+  User,
   UserDocument,
   DriverLicense,
   DriverLicenseDocument,
@@ -37,7 +37,7 @@ export class UserService {
     private tokenService: TokenService,
     private cloudinaryService: CloudinaryService,
     private smsService: SmsService
-  ) {}
+  ) { }
 
   private async getPendingUser(contactNumber: string): Promise<PendingUserDocument | null> {
     return this.pendingUserModel.findOne({ contactNumber }).exec();
@@ -157,74 +157,74 @@ export class UserService {
 
   async userVerifiedUsingOtp(userId: mongoose.Types.ObjectId, otp: number) {
     console.log("user vefification")
-   
 
-  const pendingUser = await this.pendingUserModel.findById(userId).exec();
-  if (!pendingUser) throw new BadRequestException('Pending user not found');
 
-  if (pendingUser.otp !== otp) throw new BadRequestException('Invalid OTP');
+    const pendingUser = await this.pendingUserModel.findById(userId).exec();
+    if (!pendingUser) throw new BadRequestException('Pending user not found');
 
-  if (pendingUser.otpExpiresAt && pendingUser.otpExpiresAt < new Date())
-    throw new BadRequestException('OTP expired');
+    if (pendingUser.otp !== otp) throw new BadRequestException('Invalid OTP');
 
-  const userData: any = {
-    name: pendingUser.name,
-    contactNumber: pendingUser.contactNumber,
-    password: pendingUser.password,
-    role: pendingUser.role,
-    refreshToken: pendingUser.refreshToken,
-    isVerified: true,
-    profilePic: pendingUser.profilePic,
-    isContactNumberVerified: true,
-    email: pendingUser.email,
-    location: pendingUser.location,
-    
-  };
+    if (pendingUser.otpExpiresAt && pendingUser.otpExpiresAt < new Date())
+      throw new BadRequestException('OTP expired');
 
-  if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
-    // Create DriverLicense and VehicleDetails documents if not already existing
-        console.log("vehicale",pendingUser.vehicleDetails.model)
-            console.log("License",pendingUser.driverLicense.licenseNumber)
-    const [existingLicense, existingVehicle] = await Promise.all([
-      this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
-      this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
-    ]);
+    const userData: any = {
+      name: pendingUser.name,
+      contactNumber: pendingUser.contactNumber,
+      password: pendingUser.password,
+      role: pendingUser.role,
+      refreshToken: pendingUser.refreshToken,
+      isVerified: true,
+      profilePic: pendingUser.profilePic,
+      isContactNumberVerified: true,
+      email: pendingUser.email,
+      location: pendingUser.location,
 
-    if (existingLicense) {
-      userData.driverLicense = existingLicense._id;
-    } else {
-      const driverLicenseDoc = await this.driverLicenseModel.create({
-        licenseNumber: pendingUser.driverLicense.licenseNumber,
-        issueDate: pendingUser.driverLicense.issueDate,
-        expiryDate: pendingUser.driverLicense.expiryDate,
-        issuingAuthority: pendingUser.driverLicense.issuingAuthority,
-        isVerified: false,
-      });
-      userData.driverLicense = driverLicenseDoc._id;
+    };
+
+    if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
+      // Create DriverLicense and VehicleDetails documents if not already existing
+      console.log("vehicale", pendingUser.vehicleDetails.model)
+      console.log("License", pendingUser.driverLicense.licenseNumber)
+      const [existingLicense, existingVehicle] = await Promise.all([
+        this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
+        this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
+      ]);
+
+      if (existingLicense) {
+        userData.driverLicense = existingLicense._id;
+      } else {
+        const driverLicenseDoc = await this.driverLicenseModel.create({
+          licenseNumber: pendingUser.driverLicense.licenseNumber,
+          issueDate: pendingUser.driverLicense.issueDate,
+          expiryDate: pendingUser.driverLicense.expiryDate,
+          issuingAuthority: pendingUser.driverLicense.issuingAuthority,
+          isVerified: false,
+        });
+        userData.driverLicense = driverLicenseDoc._id;
+      }
+
+      if (existingVehicle) {
+        userData.vehicleDetails = existingVehicle._id;
+      } else {
+        console.log("vehicale", pendingUser.vehicleDetails.model)
+        const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
+          numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
+          type: pendingUser.vehicleDetails.type,
+          model: pendingUser.vehicleDetails.model,
+        });
+        userData.vehicleDetails = vehicleDetailsDoc._id;
+      }
     }
 
-    if (existingVehicle) {
-      userData.vehicleDetails = existingVehicle._id;
-    } else {
-      console.log("vehicale",pendingUser.vehicleDetails.model)
-      const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
-        numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
-        type: pendingUser.vehicleDetails.type,
-        model: pendingUser.vehicleDetails.model,
-      });
-      userData.vehicleDetails = vehicleDetailsDoc._id;
-    }
+    const newUser = await this.userModel.create(userData);
+    await this.pendingUserModel.findByIdAndDelete(userId).exec();
+
+    const { password, ...userWithoutPassword } = newUser.toObject();
+    return {
+      message: 'User verified successfully',
+      data: userWithoutPassword,
+    };
   }
-
-  const newUser = await this.userModel.create(userData);
-  await this.pendingUserModel.findByIdAndDelete(userId).exec();
-
-  const { password, ...userWithoutPassword } = newUser.toObject();
-  return {
-    message: 'User verified successfully',
-    data: userWithoutPassword,
-  };
-}
 
 
   async login(loginDto: LoginDto) {
@@ -266,10 +266,10 @@ export class UserService {
     user.refreshToken = '';
     await user.save();
 
-     return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK);
+    return new ApiResponse(true, 'Ride created successfully!', HttpStatus.OK);
   }
 
- async uploadProfilePic(userid, profilePicFile: Express.Multer.File): Promise<ApiResponse<string>> {
+  async uploadProfilePic(userid, profilePicFile: Express.Multer.File): Promise<ApiResponse<string>> {
     if (!profilePicFile) throw new NotFoundException("Oops! Please check ProfilePic field");
 
     const existUser = await this.userModel.findById(userid);
@@ -288,4 +288,34 @@ export class UserService {
       data: cloudFile.secure_url,
     };
   }
+
+  // async resetPassword1step(contactNumber: string) {
+  //   const user = await this.userModel.findOne({ contactNumber: contactNumber })
+  //   if (!user) {
+  //     throw new NotFoundException("User Not found for this contact number . please sign up first")
+
+  //   }
+
+  //   await this.sendUserVerificationOtp(user._id)
+  //   return {
+  //     message: "otp send your contact number"
+  //   }
+
+  // }
+
+  // async resetPassword2step(contactNumber: string, otp: number) {
+  //   const user = await this.userModel.findOne({ contactNumber })
+  //   if (!user) {
+  //     throw new NotFoundException("User Not found for this contact number . please sign up first")
+  //   }
+
+  //   if (user.otp !== otp) {
+  //     throw new BadRequestException("Otp not match please try again....")
+  //   }
+  //   user.otp = 0
+  //   user.save()
+    
+  // }
+
+
 }

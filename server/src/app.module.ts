@@ -19,6 +19,7 @@ import ConfigureDB from './comman/db/db';
 import { MailModule } from './comman/mail/mail.module';
 import { otpModule } from './comman/otp/otp.module';
 import { TokenModule } from './comman/token/token.module';
+import { CompanyModule } from './modules/company/company.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { TokenModule } from './comman/token/token.module';
     AdminModule,
     DriverModule,
     RideModule,
+    CompanyModule,
 
     // Common Functional Modules
     CloudinaryModule,

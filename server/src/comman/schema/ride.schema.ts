@@ -33,6 +33,9 @@ export class Ride {
   @Prop({ type: Number, required: true })
   platformEarnings: number;
 
+  @Prop({ type: Number, required: true,default:0 })
+  gstAmount: Number
+
   @Prop({
     type: {
       baseFare: Number,
@@ -73,7 +76,7 @@ export class Ride {
     enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
     default: 'processing'
   })
-  status: 'processing'|'accepted'|'arrived'| 'started'| 'completed'|'cancelled'|'terminated';
+  status: 'processing' | 'accepted' | 'arrived' | 'started' | 'completed' | 'cancelled' | 'terminated';
 
   @Prop({
     required: true,
@@ -170,6 +173,9 @@ export class TemporaryRide {
   @Prop({ type: Number, required: true })
   platformEarnings: number;
 
+  @Prop({ type: Number, required: true })
+  gstAmount: Number
+
   @Prop({
     type: {
       baseFare: Number,
@@ -210,7 +216,7 @@ export class TemporaryRide {
     enum: ['processing', 'accepted', 'arrived', 'started', 'completed', 'cancelled', 'terminated'],
     default: 'processing'
   })
-  status: string;
+  status: 'processing' | 'accepted' | 'arrived' | 'started' | 'completed' | 'cancelled' | 'terminated';
 
   @Prop({
     required: true,

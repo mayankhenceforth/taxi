@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({ example:1234567890})
+  @ApiProperty({ example:"+911234567890"})
   @IsNotEmpty()
   @IsNumber()
   readonly contactNumber: number;

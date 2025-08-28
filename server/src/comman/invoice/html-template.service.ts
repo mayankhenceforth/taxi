@@ -1,8 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { CompanyDetails, CompanyDetailsDocument } from '../schema/company.detail.schema';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 
 @Injectable()
 export class HtmlTemplateService {
   private readonly imageUrl = "https://res.cloudinary.com/dmedhsl41/image/upload/v1755751596/360_F_471467270_wdaTtaF6QWhqILrY0LGUZvpIXOtVEgGP-removebg-preview_g3rsyw.png";
+  
+  constructor(
+    @InjectModel(CompanyDetails.name)
+    private readonly companyDetail: Model<CompanyDetailsDocument>,
+  ) {}
+
   private readonly companyInfo = {
     name: "RideShare Pro",
     address: "123 Ride Street, City Center",
@@ -20,8 +29,8 @@ export class HtmlTemplateService {
             <img src="${this.imageUrl}" class="watermark" />
             <div class="company-name">${this.companyInfo.name}</div>
             <div class="company-details">
-              <div>${this.companyInfo.address}</div>
-              <div>${this.companyInfo.phone} • ${this.companyInfo.email}</div>
+              <div >${this.companyInfo.address}</div>
+              <div style="text-transform: lowercase">${this.companyInfo.phone} • ${this.companyInfo.email}</div>
               <div>GSTIN: ${this.companyInfo.gstin}</div>
             </div>
           </div>
@@ -30,7 +39,7 @@ export class HtmlTemplateService {
           <div style="font-weight: bold; font-size: 16px;">${title}</div>
           <div class="compact"><strong>Invoice No:</strong> ${invoiceNo}</div>
           <div class="compact"><strong>Date:</strong> ${new Date().toLocaleDateString('en-IN')}</div>
-          <div class="compact"><strong>Time:</strong> ${new Date().toLocaleTimeString('en-IN')}</div>
+          <div class="compact" style="text-transform: uppercase"><strong>Time:</strong> ${new Date().toLocaleTimeString('en-IN')}</div>
           ${additionalInfo || ''}
         </div>
       </div>
@@ -48,8 +57,8 @@ export class HtmlTemplateService {
               <div class="company-name">${this.companyInfo.name}</div>
               <div class="company-details">
                 <div>${this.companyInfo.address}</div>
-                <div>${this.companyInfo.phone} • ${this.companyInfo.email}</div>
-                <div>GSTIN: ${this.companyInfo.gstin}</div>
+                <div style="text-transform: lowercase">${this.companyInfo.phone} • ${this.companyInfo.email}</div>
+                <div style="text-transform: lowercase">GSTIN: ${this.companyInfo.gstin}</div>
               </div>
             </div>
           </div>
@@ -68,17 +77,17 @@ export class HtmlTemplateService {
     return `
       <div class="footer">
         <div>Thank you for choosing ${this.companyInfo.name}!</div>
-        <div>This is a computer-generated invoice • www.rideshare.com</div>
-        <div>For queries: ${this.companyInfo.email} • ${this.companyInfo.phone}</div>
+        <div >This is a computer-generated invoice • <span style="text-transform: lowercase">
+        www.rideshare.com</span></div>
+        <div>For queries: <span style="text-transform: lowercase">${this.companyInfo.email} • ${this.companyInfo.phone}</span></div>
       </div>
     `;
   }
 
   generateBaseStyles(primaryColor: string = "#fcad02dc", watermarkOpacity: string = "0.20"): string {
     return `
-      body { font-family: 'Helvetica', Arial, sans-serif; margin: 15px; font-size: 12px; color: #333; text-transform: capitalize;
-; }
-      .container { max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+      body { font-family: 'Helvetica', Arial, sans-serif; margin: 15px; font-size: 12px; color: #333; text-transform: capitalize;}
+      .container { max-width: 800px; margin: 0 auto; padding: 20px;  }
       .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid ${primaryColor}; padding-bottom: 15px; }
       .company-info { flex: 2; }
       .company-name { font-size: 20px; font-weight: bold; color: ${primaryColor}; margin-bottom: 5px; }

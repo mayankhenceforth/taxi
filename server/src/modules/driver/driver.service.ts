@@ -79,46 +79,113 @@ export class DriverService {
 
   /** Create Driver Payout Account */
   async createPaymentAccount(req: any, dto: CreateDriverPayoutDto) {
-    const driverId = req.user?._id;
-    const driver = await this.userModel.findOne({ _id: driverId, role: 'driver' });
-    if (!driver) throw new UnauthorizedException('Driver not found!');
+  const driverId = req.user?._id;
+  const driver = await this.userModel.findOne({ _id: driverId, role: 'driver' });
+  if (!driver) throw new UnauthorizedException('Driver not found!');
 
-    if (!dto.method || !dto.accountNumber || !dto.accountHolderName) throw new BadRequestException('Required fields missing!');
-    if (dto.method === 'bank' && !dto.ifsc) throw new BadRequestException('IFSC required for bank payout.');
+  if (!dto.method || !dto.accountNumber || !dto.accountHolderName) throw new BadRequestException('Required fields missing!');
+  if (dto.method === 'bank' && !dto.ifsc) throw new BadRequestException('IFSC required for bank payout.');
 
-    if (dto.isDefault) {
-      await this.driverPayoutModel.updateMany({ driverId, isDefault: true }, { isDefault: false });
-    }
+  // Check if payout account already exists for this driver
+  let existingPayout = await this.driverPayoutModel.findOne({ 
+    driverId, 
+    method: dto.method,
+    accountNumber: dto.accountNumber
+  });
 
-    const payout =await new this.driverPayoutModel({
-      driverId,
-      method: dto.method,
-      accountNumber: dto.accountNumber,
-      ifsc: dto.ifsc || null,
+  if (existingPayout) {
+    // Update existing payout document
+    const updateData: any = {
       accountHolderName: dto.accountHolderName,
-      nickname: dto.nickname || null,
-      isDefault: dto.isDefault || false,
       isActive: true,
-    });
-    await payout.save();
+      updatedAt: new Date()
+    };
 
-
-
-    if (!Array.isArray(driver.payoutAccounts)) {
-      driver.payoutAccounts = [];
+    // Only update ifsc if provided and method is bank
+    if (dto.method === 'bank' && dto.ifsc) {
+      updateData.ifsc = dto.ifsc;
     }
 
-    const driverPaymentInfo =await new this.driverPaymentModel({
-      driverId,
-      payoutMethod:payout._id
-    })
-    await driverPaymentInfo.save()
+    // Update nickname if provided
+    if (dto.nickname) {
+      updateData.nickname = dto.nickname;
+    }
 
-    driver.payoutAccounts.push(payout._id as Types.ObjectId);
-    await driver.save();
-    return { success: true, message: 'Driver payout account created', data: payout };
+    // Handle default account logic
+    if (dto.isDefault) {
+      await this.driverPayoutModel.updateMany(
+        { driverId, isDefault: true }, 
+        { isDefault: false }
+      );
+      updateData.isDefault = true;
+    } else {
+      updateData.isDefault = dto.isDefault || false;
+    }
+
+    existingPayout = await this.driverPayoutModel.findByIdAndUpdate(
+      existingPayout._id,
+      updateData,
+      { new: true }
+    );
+
+    return { 
+      success: true, 
+      message: 'Driver payout account updated successfully', 
+      data: existingPayout 
+    };
   }
 
+  // Create new payout account if it doesn't exist
+  if (dto.isDefault) {
+    await this.driverPayoutModel.updateMany(
+      { driverId, isDefault: true }, 
+      { isDefault: false }
+    );
+  }
+
+  const payout = await new this.driverPayoutModel({
+    driverId,
+    method: dto.method,
+    accountNumber: dto.accountNumber,
+    ifsc: dto.method === 'bank' ? dto.ifsc : null,
+    accountHolderName: dto.accountHolderName,
+    nickname: dto.nickname || null,
+    isDefault: dto.isDefault || false,
+    isActive: true,
+  }).save();
+
+  // Initialize payoutAccounts array if it doesn't exist
+  if (!Array.isArray(driver.payoutAccounts)) {
+    driver.payoutAccounts = [];
+  }
+
+  // Check if payout account is already in the driver's payoutAccounts
+  if (!driver.payoutAccounts.includes(payout._id as Types.ObjectId)) {
+    driver.payoutAccounts.push(payout._id as Types.ObjectId);
+    await driver.save();
+  }
+
+  // Check if driver payment info already exists
+  let driverPaymentInfo = await this.driverPaymentModel.findOne({ driverId });
+  
+  if (!driverPaymentInfo) {
+    // Create new driver payment info if it doesn't exist
+    driverPaymentInfo = await new this.driverPaymentModel({
+      driverId,
+      payoutMethod: payout._id
+    }).save();
+  } else {
+    // Update existing driver payment info
+    driverPaymentInfo.payoutMethod = payout._id as any
+    await driverPaymentInfo.save();
+  }
+
+  return { 
+    success: true, 
+    message: 'Driver payout account created successfully', 
+    data: payout 
+  };
+}
   /** Record Driver Earnings for a ride */
   async recordDriverEarning(
     rideId: string,

@@ -256,7 +256,7 @@ export class AdminService {
       throw new HttpException('Status is required', HttpStatus.BAD_REQUEST);
     }
 
-    const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled'];
+    const allowedStatuses = ['pending', 'accepted', 'completed', 'cancelled','arrived'];
     if (!allowedStatuses.includes(status)) {
       throw new HttpException(
         `Invalid status provided. Allowed values are: ${allowedStatuses.join(', ')}`,
@@ -534,15 +534,15 @@ export class AdminService {
   // Settings methods
    async upsertSettings(superAdminId: string, createSettingDto: CreateSettingDto) {
 
-    console.log(createSettingDto)
-    console.log("super admin id:",superAdminId)
+    // console.log(createSettingDto)
+    // console.log("super admin id:",superAdminId)
     // Validate that superAdminId corresponds to a SuperAdmin
     const superAdmin = await this.userModel.findOne({
      _id: new Types.ObjectId(superAdminId),
       role: Role.SuperAdmin,
     });
 
-    console.log("superadmin:",superAdmin)
+    // console.log("superadmin:",superAdmin)
 
     if (!superAdmin) {
       throw new HttpException('SuperAdmin not found or invalid', HttpStatus.FORBIDDEN);

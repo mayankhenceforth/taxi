@@ -1,6 +1,6 @@
-
+// src/modules/settings/dto/create-setting.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsObject, ValidateNested } from 'class-validator';
+import { IsNumber, IsObject, ValidateNested, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class RefundPolicyScenario {
@@ -10,6 +10,8 @@ class RefundPolicyScenario {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   refundPercent: number;
 
   @ApiProperty({
@@ -18,6 +20,8 @@ class RefundPolicyScenario {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   driverEarningPercent: number;
 
   @ApiProperty({
@@ -26,6 +30,8 @@ class RefundPolicyScenario {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   platformEarningPercent: number;
 }
 
@@ -115,6 +121,7 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
   bikeBaseFare: number;
 
   @ApiProperty({
@@ -124,6 +131,7 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
   carBaseFare: number;
 
   @ApiProperty({
@@ -133,6 +141,8 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   bikeGstPercent: number;
 
   @ApiProperty({
@@ -142,6 +152,8 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   carGstPercent: number;
 
   @ApiProperty({
@@ -151,6 +163,8 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   platformFeePercent: number;
 
   @ApiProperty({
@@ -160,16 +174,40 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
+  @Max(100)
   nightChargePercent: number;
 
   @ApiProperty({
-    description: 'Waiting charge per minute',
+    description: 'General waiting charge per minute (if vehicle-specific not provided)',
+    example: 1,
+    default: 1,
+    type: Number,
+    required: false,
+  })
+  @IsNumber()
+  @Min(0)
+  waitingChargePerMin?: number;
+
+  @ApiProperty({
+    description: 'Waiting charge per minute for bike rides',
     example: 1,
     default: 1,
     type: Number,
   })
   @IsNumber()
-  waitingChargePerMin: number;
+  @Min(0)
+  bikeWaitingChargePerMin: number;
+
+  @ApiProperty({
+    description: 'Waiting charge per minute for car rides',
+    example: 2,
+    default: 2,
+    type: Number,
+  })
+  @IsNumber()
+  @Min(0)
+  carWaitingChargePerMin: number;
 
   @ApiProperty({
     description: 'Parking fee',
@@ -178,6 +216,7 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
   parkingFee: number;
 
   @ApiProperty({
@@ -187,6 +226,7 @@ export class CreateSettingDto {
     type: Number,
   })
   @IsNumber()
+  @Min(0)
   tollPricePerKm: number;
 
   @ApiProperty({

@@ -41,8 +41,8 @@ async function bootstrap() {
   const port = await findAvailablePort(Number(process.env.PORT) || 3000);
   await app.listen(port);
 
-  console.log(`🚖 Taxi Booking API is running on: http://localhost:${port}`);
-  console.log(`📘 Swagger Docs: http://localhost:${port}/api`);
+  console.log(`Taxi Booking API is running on: http://localhost:${port}`);
+  console.log(`Swagger Docs: http://localhost:${port}/api`);
 }
 bootstrap();
 

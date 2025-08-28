@@ -43,7 +43,7 @@ export class RideGateway {
 
         const userSocketId = this.connectedUsers.get(userId);
         if (userSocketId) {
-            this.server.to(userSocketId).emit('Driver  is arrived he is waiting .....', rideDetails);  
+            this.server.to(userSocketId).emit('Driver is arrived he is waiting .....', rideDetails);  
         }
     }
 

@@ -19,15 +19,15 @@ import { Model } from 'mongoose';
 @Controller('driver')
 export class DriverController {
   constructor(private readonly driverService: DriverService,
-     @InjectModel(Ride.name) private rideModel: Model<RideDocument>,
+    @InjectModel(Ride.name) private rideModel: Model<RideDocument>,
     @InjectModel(DriverPayout.name) private driverPayoutModel: Model<DriverPayoutDocument>,
-  
-  ) {}
+
+  ) { }
 
   @Post('setup-account')
-  @ApiOperation({ 
-    summary: 'Set up driver account', 
-    description: 'Allows a driver to set up their account with vehicle and personal details.' 
+  @ApiOperation({
+    summary: 'Set up driver account',
+    description: 'Allows a driver to set up their account with vehicle and personal details.'
   })
   @ApiBody({ type: SetupDriverAccountDto })
   @ApiResponse({ status: 201, description: 'Driver account set up successfully.' })
@@ -39,9 +39,9 @@ export class DriverController {
   }
 
   @Post('payout-account')
-  @ApiOperation({ 
-    summary: 'Create driver payout account', 
-    description: 'Sets up a payout account for the driver to receive earnings.' 
+  @ApiOperation({
+    summary: 'Create driver payout account',
+    description: 'Sets up a payout account for the driver to receive earnings.'
   })
   @ApiBody({ type: CreateDriverPayoutDto })
   @ApiResponse({ status: 201, description: 'Payout account created successfully.' })
@@ -52,10 +52,40 @@ export class DriverController {
     return this.driverService.createPaymentAccount(req, createDriverPayoutDto);
   }
 
+  @Get('payout-accounts')
+@ApiOperation({ summary: 'Get driver payout accounts' })
+@ApiResponse({
+  status: 200,
+  description: 'Returns all payout accounts for the driver.'
+})
+async getPayoutAccounts(@Req() req) {
+  const driverId = req.user?._id;
+
+  const payoutAccounts = await this.driverPayoutModel.find({
+    driverId,
+    isActive: true,
+  })
+    .sort({ isDefault: -1, createdAt: -1 })
+    .select('-_id -__v -createdAt -updatedAt -driverId -isDefault');
+
+  const protectedData = payoutAccounts.map((acc: any) => ({
+    ...acc.toObject(),
+    accountNumber: acc.accountNumber
+      ? `****${acc.accountNumber.slice(-4)}`
+      : null,
+    ifsc: acc.ifsc
+      ? `****${acc.ifsc.slice(-4)}`
+      : null,
+  }));
+
+  return { success: true, data: protectedData };
+}
+
+
   @Get('earnings')
-  @ApiOperation({ 
-    summary: 'Retrieve driver earnings', 
-    description: 'Fetches the total earnings for the authenticated driver.' 
+  @ApiOperation({
+    summary: 'Retrieve driver earnings',
+    description: 'Fetches the total earnings for the authenticated driver.'
   })
   @ApiResponse({ status: 200, description: 'Driver earnings retrieved successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized access.' })
@@ -66,9 +96,9 @@ export class DriverController {
   }
 
   @Get('earnings/history')
-  @ApiOperation({ 
-    summary: 'Retrieve driver earnings history', 
-    description: 'Fetches the paginated earnings history for the authenticated driver.' 
+  @ApiOperation({
+    summary: 'Retrieve driver earnings history',
+    description: 'Fetches the paginated earnings history for the authenticated driver.'
   })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
