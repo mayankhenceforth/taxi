@@ -24,7 +24,9 @@ import { DriverEarning, DriverEarningSchema } from '../schema/driver-earnings.sc
 import { DriverPayment, DriverPaymentSchema } from '../schema/DriverPaymentInfo.schema';
 import { Setting, SettingSchema } from '../schema/setting.schema';
 import { PlatformEarningCollection, PlatformEarningSchema } from '../schema/platform-earning.schema';
-import { CompanyDetails, CompanyDetailsSchema } from '../schema/company.detail.schema';
+import { CompanyAddress, CompanyAddressSchema, CompanyContactNumber, CompanyContactNumberSchema, CompanyDetails, CompanyDetailsSchema, CompanySocialMedia, CompanySocialMediaSchema } from '../schema/company.detail.schema';
+import { CustomerSupport, CustomerSupportSchema } from '../schema/customerSupport.schema';
+import { TotalRideEarning, TotalRideEarningSchema } from '../schema/total-ride-earning.schema';
 
 @Global()
 @Module({
@@ -42,7 +44,13 @@ import { CompanyDetails, CompanyDetailsSchema } from '../schema/company.detail.s
       {name:DriverPayment.name ,schema :DriverPaymentSchema},
       {name:Setting.name ,schema:SettingSchema},
       {name:PlatformEarningCollection.name ,schema:PlatformEarningSchema},
-      {name:CompanyDetails.name ,schema:CompanyDetailsSchema}
+      {name:CompanyDetails.name ,schema:CompanyDetailsSchema},
+      {name:CustomerSupport.name ,schema:CustomerSupportSchema},
+      {name:TotalRideEarning.name , schema:TotalRideEarningSchema},
+      {name: CompanyDetails.name ,schema:CompanyDetailsSchema},
+      {name:CompanyAddress.name ,schema:CompanyAddressSchema},
+      {name:CompanyContactNumber.name , schema:CompanyContactNumberSchema},
+      {name:CompanySocialMedia.name , schema:CompanySocialMediaSchema}
     ])
   ],
   exports: [MongooseModule]

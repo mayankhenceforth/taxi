@@ -289,33 +289,60 @@ export class UserService {
     };
   }
 
-  // async resetPassword1step(contactNumber: string) {
-  //   const user = await this.userModel.findOne({ contactNumber: contactNumber })
-  //   if (!user) {
-  //     throw new NotFoundException("User Not found for this contact number . please sign up first")
+  async resetPassword1step(contactNumber: string) {
+    const user = await this.userModel.findOne({ contactNumber: contactNumber })
+    if (!user) {
+      throw new NotFoundException("User Not found for this contact number . please sign up first")
 
-  //   }
+    }
 
-  //   await this.sendUserVerificationOtp(user._id)
-  //   return {
-  //     message: "otp send your contact number"
-  //   }
+    await this.sendUserVerificationOtp(user._id)
+    return {
+      message: "otp send your contact number"
+    }
 
-  // }
+  }
 
-  // async resetPassword2step(contactNumber: string, otp: number) {
-  //   const user = await this.userModel.findOne({ contactNumber })
-  //   if (!user) {
-  //     throw new NotFoundException("User Not found for this contact number . please sign up first")
-  //   }
+  async resetPassword2step(contactNumber: string, otp: number) {
+    const user = await this.userModel.findOne({ contactNumber })
+    if (!user) {
+      throw new NotFoundException("User Not found for this contact number . please sign up first")
+    }
 
-  //   if (user.otp !== otp) {
-  //     throw new BadRequestException("Otp not match please try again....")
-  //   }
-  //   user.otp = 0
-  //   user.save()
-    
-  // }
+    if (user.otp !== otp) {
+      throw new BadRequestException("Otp not match please try again....")
+    }
+    user.otp = 0
+    user.save()
+    return {
+      success: true,
+      statusCode: 200,
+      message: 'Otp verified',
+    };
+  }
+
+ async resetPassword3step(contactNumber: string, password: string) {
+  try {
+    const user = await this.userModel.findOne({ contactNumber });
+
+    if (!user) {
+      throw new NotFoundException(
+        "User not found for this contact number. Please sign up first"
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return { message: "Password reset successful" };
+  } catch (error) {
+    console.log("resetPasword3rdstep:", error.message || error);
+    throw new BadRequestException(error.message || "Something went wrong");
+  }
+}
+
 
 
 }

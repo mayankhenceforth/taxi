@@ -34,6 +34,11 @@ import { DriverEarning, DriverEarningDocument } from 'src/comman/schema/driver-e
 import { Payment, PaymentDocument } from 'src/comman/schema/payment.schema';
 import { Setting, SettingDocument } from 'src/comman/schema/setting.schema';
 import { EarningsStatus, PlatformEarningCollection, PlatformEarningDocument } from 'src/comman/schema/platform-earning.schema';
+import { CustomerSupportService } from '../customer-support/customer-support.service';
+import { ReportIssueDto } from './dto/report-issue.dto';
+import { inherits } from 'util';
+import { CustomerSupport, CustomerSupportDocument } from 'src/comman/schema/customerSupport.schema';
+import { TotalRideEarning, TotalRideEarningDocument } from 'src/comman/schema/total-ride-earning.schema';
 
 @Injectable()
 export class RideService {
@@ -52,13 +57,15 @@ export class RideService {
     @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Setting.name) private readonly settingModel: Model<SettingDocument>,
     @InjectModel(PlatformEarningCollection.name) private readonly plateformEarningModel: Model<PlatformEarningDocument>,
-
+    @InjectModel(CustomerSupport.name) private readonly customerSupportModel: Model<CustomerSupportDocument>,
+    @InjectModel(TotalRideEarning.name) private readonly totalRideEarning: Model<TotalRideEarningDocument>,
     private readonly rideGateway: RideGateway,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly driverService: DriverService,
     private readonly mailService: MailService,
+    private readonly supportService: CustomerSupportService,
   ) {
     const accountSid = process.env.TWILIO_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -675,7 +682,7 @@ export class RideService {
         throw new BadRequestException("Payment refund not created");
       }
 
-      const earning = await this.driverService.recordDriverEarning(
+      const driverEarning = await this.driverService.recordDriverEarning(
         rideId,
         ride.driver?._id,
         ride.bookedBy?._id,
@@ -688,14 +695,14 @@ export class RideService {
         { driverId: ride.driver._id },
         {
           $inc: {
-            totalEarnings: earning.amount,
-            balance: earning.amount,
+            totalEarnings: driverEarning.amount,
+            balance: driverEarning.amount,
           },
         },
         { new: true, upsert: true, session }
       );
 
-      await this.recordPlatformEarning(
+      const platformEarning = await this.recordPlatformEarning(
         rideId,
         ride.driver,
         ride.bookedBy,
@@ -704,9 +711,22 @@ export class RideService {
         ride.status
       );
 
-      ride.driverEarnings = earning.amount;
+      ride.driverEarnings = response.driverEarning;
       ride.platformEarnings = response.platformEarning;
       await ride.save({ session });
+
+      const otherCharges: Number = ride.TotalFare - Number(ride.gstAmount) - Number(ride.driverEarnings) - Number(ride.platformEarnings)
+
+      await this.totalRideEarning.create({
+        platformEarningId: platformEarning._id,
+        driverEarningId: driverEarning._id,
+        rideId,
+        gstAmount: ride.gstAmount,
+        driverEarning: ride.driverEarnings,
+        platformEarning: ride.platformEarnings,
+        totalAmount: ride.TotalFare,
+        otherCharges: otherCharges
+      })
 
       this.clearRideTimers(rideId);
 
@@ -820,6 +840,35 @@ export class RideService {
     return pdfBuffer;
   }
 
+  async reportIssue(
+    rideId: Types.ObjectId,
+    userId: Types.ObjectId,
+    role: 'user' | 'driver',
+    dto: ReportIssueDto
+  ) {
+    const ride = await this.rideModel.findById(rideId).exec();
+    if (!ride) throw new NotFoundException('Ride not found');
+
+    if (role === 'driver') {
+      if (!ride.driver?.equals(userId)) {
+        throw new NotFoundException("You are not eligible to report this ride");
+      }
+    } else if (role === 'user') {
+      if (!ride.bookedBy?.equals(userId)) {
+        throw new NotFoundException("You are not eligible to report this ride");
+      }
+    }
+
+    return await this.supportService.createSupportTicket({
+      rideId,
+      userId,
+      role,
+      subject: dto.subject,
+      message: dto.message,
+    });
+  }
+
+
   async rideComplete(rideId: string, request: any): Promise<ApiResponse<any>> {
     if (!Types.ObjectId.isValid(rideId)) {
       throw new BadRequestException('Invalid rideId');
@@ -856,7 +905,7 @@ export class RideService {
       );
 
       const paymentId = ride.paymentId ? ride.paymentId : new Types.ObjectId();
-      await this.driverService.recordDriverEarning(
+      const driverEarning = await this.driverService.recordDriverEarning(
         String(ride._id),
         ride.driver._id,
         ride.bookedBy._id,
@@ -876,7 +925,7 @@ export class RideService {
         { new: true, upsert: true, session }
       );
 
-      await this.recordPlatformEarning(
+      const platformEarning = await this.recordPlatformEarning(
         rideId,
         ride.driver,
         ride.bookedBy,
@@ -885,6 +934,19 @@ export class RideService {
         ride.status
       );
 
+
+      const otherCharges: Number = ride.TotalFare - Number(ride.gstAmount) - Number(ride.driverEarnings) - Number(ride.platformEarnings)
+
+      await this.totalRideEarning.create({
+        platformEarningId: platformEarning._id,
+        driverEarningId: driverEarning._id,
+        rideId,
+        gstAmount: ride.gstAmount,
+        driverEarning: ride.driverEarnings,
+        platformEarning: ride.platformEarnings,
+        totalAmount: ride.TotalFare,
+        otherCharges: otherCharges
+      })
       await session.commitTransaction();
       session.endSession();
 

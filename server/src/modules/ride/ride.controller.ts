@@ -30,6 +30,8 @@ import { Response } from 'express';
 import { PaymentService } from 'src/comman/payment/payment.service';
 import { InvoiceService } from 'src/comman/invoice/invoice.service';
 import { RideRatingDto } from './dto/rating.dto';
+import { ReportIssueDto } from './dto/report-issue.dto';
+import { Types } from 'mongoose';
 
 @ApiTags('Ride')
 @Controller('ride')
@@ -38,7 +40,7 @@ export class RideController {
     private readonly rideService: RideService,
     private readonly paymentService: PaymentService,
     private readonly invoiceService: InvoiceService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiBearerAuth()
@@ -167,7 +169,7 @@ export class RideController {
     return this.rideService.paymentRide(rideId, request);
   }
 
-  @Get(':rideId/confirm-payment')
+  @Get(':rideId/payment-details')
   @ApiBearerAuth()
   @Roles(Role.User)
   @UseGuards(AuthGuards, RoleGuards)
@@ -198,6 +200,26 @@ export class RideController {
     res.end(pdfBuffer);
   }
 
+  @Post('report/:rideId')
+  @ApiBearerAuth()
+  @Roles(Role.User, Role.Driver)
+  @UseGuards(AuthGuards, RoleGuards)
+  @ApiParam({ name: 'rideId', type: String, description: 'Ride ID' })
+  async support(
+    @Param('rideId') rideId: Types.ObjectId,
+    @Req() request: any,
+    @Body() dto: ReportIssueDto,
+  ) {
+    const user = request.user;
+    return this.rideService.reportIssue(
+      rideId,
+      user._id,
+      user.role,
+      dto,
+    );
+  }
+
+
   @Get(':rideId/complete')
   @ApiBearerAuth()
   @Roles(Role.Driver)
@@ -221,15 +243,19 @@ export class RideController {
   @Post(":rideId/rating")
   @ApiBearerAuth()
   @Roles(Role.User)
-  @UseGuards(AuthGuards,RoleGuards)
-   @ApiParam({ name: 'rideId', type: String, description: 'Ride ID' })
-   async handleRideRating(
-     @Param('rideId') rideId: string,
+  @UseGuards(AuthGuards, RoleGuards)
+  @ApiOperation({
+    summary: 'Ride Conmpleted user rate the driver or ride',
+    description: 'User rate the rider.',
+  })
+  @ApiParam({ name: 'rideId', type: String, description: 'Ride ID' })
+  async handleRideRating(
+    @Param('rideId') rideId: string,
     @Req() request: any,
-    @Body() ratingDto:RideRatingDto
-   ){
-      return this.rideService.rideRating(rideId ,request , ratingDto)
-   }
+    @Body() ratingDto: RideRatingDto
+  ) {
+    return this.rideService.rideRating(rideId, request, ratingDto)
+  }
 
 
 }

@@ -12,6 +12,7 @@ import { InvoiceModule } from 'src/comman/invoice/invoice.module';
 import { CloudinaryModule } from 'src/comman/cloudinary/cloudinary.module';
 import { PaymentModule } from 'src/comman/payment/payment.module';
 import { MailModule } from 'src/comman/mail/mail.module';
+import { CustomerSupportModule } from '../customer-support/customer-support.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MailModule } from 'src/comman/mail/mail.module';
     CloudinaryModule,
     PaymentModule,
     MailModule,
+    CustomerSupportModule
   ],
   controllers: [RideController],
   providers: [

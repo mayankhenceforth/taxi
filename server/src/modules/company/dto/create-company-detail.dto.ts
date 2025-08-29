@@ -1,4 +1,3 @@
-// src/modules/company/dto/create-company-details.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { 
   IsString, 
@@ -111,12 +110,12 @@ export class CreateCompanyDetailsDto {
   @IsOptional()
   tradingName?: string;
 
-  @ApiProperty({ example: 'https://cloudinary.com/company-logo.png', required: false })
+  @ApiProperty({ example: 'https://res.cloudinary.com/dmedhsl41/image/upload/v1755751596/360_F_471467270_wdaTtaF6QWhqILrY0LGUZvpIXOtVEgGP-removebg-preview_g3rsyw.png', required: false })
   @IsUrl()
   @IsOptional()
   logo?: string;
 
-  @ApiProperty({ example: 'https://cloudinary.com/favicon.ico', required: false })
+  @ApiProperty({ example: 'https://res.cloudinary.com/dmedhsl41/image/upload/v1755751596/360_F_471467270_wdaTtaF6QWhqILrY0LGUZvpIXOtVEgGP-removebg-preview_g3rsyw.png', required: false })
   @IsUrl()
   @IsOptional()
   favicon?: string;

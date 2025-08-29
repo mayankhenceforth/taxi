@@ -8,13 +8,14 @@ import { AuthGuards } from 'src/comman/guards/auth.guards';
 import { RoleGuards } from 'src/comman/guards/role.guards';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { DatabaseModule } from 'src/comman/db/db.module';
 
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: CompanyDetails.name, schema: CompanyDetailsSchema }
-    ]),
+    // MongooseModule.forFeature([
+    //   { name: CompanyDetails.name, schema: CompanyDetailsSchema }
+    // ]),
     JwtModule.registerAsync({
           imports: [ConfigModule],
           inject: [ConfigService],
@@ -23,6 +24,7 @@ import { JwtModule } from '@nestjs/jwt';
             signOptions: { expiresIn: '1d' },
           }),
         }),
+        DatabaseModule
   ],
   controllers: [CompanyController],
   providers: [CompanyService,AuthGuards ,RoleGuards ],
