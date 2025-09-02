@@ -340,17 +340,17 @@ export class AdminController {
   }
 
   // Settings endpoints
-@Post('settings/:superAdminId')
-@Roles(Role.SuperAdmin)
-@ApiOperation({ summary: 'Create or update settings' })
-@ApiParam({ name: 'superAdminId', type: String, description: 'SuperAdmin ID' })
-upsertSettings(
-  @Body() createSettingDto: CreateSettingDto,
-  @Param('superAdminId') superAdminId: string,
-) {
-  console.log("superAdmin Id:", superAdminId);
-  return this.adminService.upsertSettings(superAdminId, createSettingDto);
-}
+  @Post('settings/:superAdminId')
+  @Roles(Role.SuperAdmin)
+  @ApiOperation({ summary: 'Create or update settings' })
+  @ApiParam({ name: 'superAdminId', type: String, description: 'SuperAdmin ID' })
+  upsertSettings(
+    @Body() createSettingDto: CreateSettingDto,
+    @Param('superAdminId') superAdminId: string,
+  ) {
+    console.log("superAdmin Id:", superAdminId);
+    return this.adminService.upsertSettings(superAdminId, createSettingDto);
+  }
 
 
   @Get('settings')

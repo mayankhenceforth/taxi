@@ -27,6 +27,7 @@ import ApiResponse from 'src/comman/helpers/api-response';
 import { CloudinaryService } from 'src/comman/cloudinary/cloudinary.service';
 import { SmsService } from 'src/comman/sms/sms.service';
 
+
 @Injectable()
 export class UserService {
   constructor(
@@ -41,6 +42,20 @@ export class UserService {
 
   private async getPendingUser(contactNumber: string): Promise<PendingUserDocument | null> {
     return this.pendingUserModel.findOne({ contactNumber }).exec();
+  }
+
+
+
+  async getUser(id: string) {
+    const user = await this.userModel.findById(id).populate('vehicleDetails driverLicense payoutAccounts').select('-otp')
+    if (!user) {
+      throw new BadRequestException("This Id user not found")
+    }
+    console.log("user info:", user)
+    return {
+      message: "User Informtion",
+      data: user
+    }
   }
 
   async signUp(signUp: SignUpDto) {
@@ -155,76 +170,76 @@ export class UserService {
     };
   }
 
-  async userVerifiedUsingOtp(userId: mongoose.Types.ObjectId, otp: number) {
-    console.log("user vefification")
+    async userVerifiedUsingOtp(userId: mongoose.Types.ObjectId, otp: number) {
+      console.log("user vefification")
 
 
-    const pendingUser = await this.pendingUserModel.findById(userId).exec();
-    if (!pendingUser) throw new BadRequestException('Pending user not found');
+      const pendingUser = await this.pendingUserModel.findById(userId).exec();
+      if (!pendingUser) throw new BadRequestException('Pending user not found');
 
-    if (pendingUser.otp !== otp) throw new BadRequestException('Invalid OTP');
+      if (pendingUser.otp !== otp) throw new BadRequestException('Invalid OTP');
 
-    if (pendingUser.otpExpiresAt && pendingUser.otpExpiresAt < new Date())
-      throw new BadRequestException('OTP expired');
+      if (pendingUser.otpExpiresAt && pendingUser.otpExpiresAt < new Date())
+        throw new BadRequestException('OTP expired');
 
-    const userData: any = {
-      name: pendingUser.name,
-      contactNumber: pendingUser.contactNumber,
-      password: pendingUser.password,
-      role: pendingUser.role,
-      refreshToken: pendingUser.refreshToken,
-      isVerified: true,
-      profilePic: pendingUser.profilePic,
-      isContactNumberVerified: true,
-      email: pendingUser.email,
-      location: pendingUser.location,
+      const userData: any = {
+        name: pendingUser.name,
+        contactNumber: pendingUser.contactNumber,
+        password: pendingUser.password,
+        role: pendingUser.role,
+        refreshToken: pendingUser.refreshToken,
+        isVerified: true,
+        profilePic: pendingUser.profilePic,
+        isContactNumberVerified: true,
+        email: pendingUser.email,
+        location: pendingUser.location,
 
-    };
+      };
 
-    if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
-      // Create DriverLicense and VehicleDetails documents if not already existing
-      console.log("vehicale", pendingUser.vehicleDetails.model)
-      console.log("License", pendingUser.driverLicense.licenseNumber)
-      const [existingLicense, existingVehicle] = await Promise.all([
-        this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
-        this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
-      ]);
-
-      if (existingLicense) {
-        userData.driverLicense = existingLicense._id;
-      } else {
-        const driverLicenseDoc = await this.driverLicenseModel.create({
-          licenseNumber: pendingUser.driverLicense.licenseNumber,
-          issueDate: pendingUser.driverLicense.issueDate,
-          expiryDate: pendingUser.driverLicense.expiryDate,
-          issuingAuthority: pendingUser.driverLicense.issuingAuthority,
-          isVerified: false,
-        });
-        userData.driverLicense = driverLicenseDoc._id;
-      }
-
-      if (existingVehicle) {
-        userData.vehicleDetails = existingVehicle._id;
-      } else {
+      if (pendingUser.role === 'driver' && pendingUser.driverLicense && pendingUser.vehicleDetails) {
+        // Create DriverLicense and VehicleDetails documents if not already existing
         console.log("vehicale", pendingUser.vehicleDetails.model)
-        const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
-          numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
-          type: pendingUser.vehicleDetails.type,
-          model: pendingUser.vehicleDetails.model,
-        });
-        userData.vehicleDetails = vehicleDetailsDoc._id;
+        console.log("License", pendingUser.driverLicense.licenseNumber)
+        const [existingLicense, existingVehicle] = await Promise.all([
+          this.driverLicenseModel.findOne({ licenseNumber: pendingUser.driverLicense.licenseNumber }),
+          this.vehicleDetailsModel.findOne({ numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase() }),
+        ]);
+
+        if (existingLicense) {
+          userData.driverLicense = existingLicense._id;
+        } else {
+          const driverLicenseDoc = await this.driverLicenseModel.create({
+            licenseNumber: pendingUser.driverLicense.licenseNumber,
+            issueDate: pendingUser.driverLicense.issueDate,
+            expiryDate: pendingUser.driverLicense.expiryDate,
+            issuingAuthority: pendingUser.driverLicense.issuingAuthority,
+            isVerified: false,
+          });
+          userData.driverLicense = driverLicenseDoc._id;
+        }
+
+        if (existingVehicle) {
+          userData.vehicleDetails = existingVehicle._id;
+        } else {
+          console.log("vehicale", pendingUser.vehicleDetails.model)
+          const vehicleDetailsDoc = await this.vehicleDetailsModel.create({
+            numberPlate: pendingUser.vehicleDetails.numberPlate.toUpperCase(),
+            type: pendingUser.vehicleDetails.type,
+            model: pendingUser.vehicleDetails.model,
+          });
+          userData.vehicleDetails = vehicleDetailsDoc._id;
+        }
       }
+
+      const newUser = await this.userModel.create(userData);
+      await this.pendingUserModel.findByIdAndDelete(userId).exec();
+
+      const { password, ...userWithoutPassword } = newUser.toObject();
+      return {
+        message: 'User verified successfully',
+        data: userWithoutPassword,
+      };
     }
-
-    const newUser = await this.userModel.create(userData);
-    await this.pendingUserModel.findByIdAndDelete(userId).exec();
-
-    const { password, ...userWithoutPassword } = newUser.toObject();
-    return {
-      message: 'User verified successfully',
-      data: userWithoutPassword,
-    };
-  }
 
 
   async login(loginDto: LoginDto) {
@@ -321,27 +336,27 @@ export class UserService {
     };
   }
 
- async resetPassword3step(contactNumber: string, password: string) {
-  try {
-    const user = await this.userModel.findOne({ contactNumber });
+  async resetPassword3step(contactNumber: string, password: string) {
+    try {
+      const user = await this.userModel.findOne({ contactNumber });
 
-    if (!user) {
-      throw new NotFoundException(
-        "User not found for this contact number. Please sign up first"
-      );
+      if (!user) {
+        throw new NotFoundException(
+          "User not found for this contact number. Please sign up first"
+        );
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      user.password = hashedPassword;
+      await user.save();
+
+      return { message: "Password reset successful" };
+    } catch (error) {
+      console.log("resetPasword3rdstep:", error.message || error);
+      throw new BadRequestException(error.message || "Something went wrong");
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    user.password = hashedPassword;
-    await user.save();
-
-    return { message: "Password reset successful" };
-  } catch (error) {
-    console.log("resetPasword3rdstep:", error.message || error);
-    throw new BadRequestException(error.message || "Something went wrong");
   }
-}
 
 
 

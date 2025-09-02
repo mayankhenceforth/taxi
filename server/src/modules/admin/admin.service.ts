@@ -266,22 +266,22 @@ export class AdminService {
 
     const rides = await this.rideModel.aggregate([
       { $match: { status } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'bookedBy',
-          foreignField: '_id',
-          as: 'bookedBy',
-        },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'driver',
-          foreignField: '_id',
-          as: 'driver',
-        },
-      },
+      // {
+      //   $lookup: {
+      //     from: 'users',
+      //     localField: 'bookedBy',
+      //     foreignField: '_id',
+      //     as: 'bookedBy',
+      //   },
+      // },
+      // {
+      //   $lookup: {
+      //     from: 'users',
+      //     localField: 'driver',
+      //     foreignField: '_id',
+      //     as: 'driver',
+      //   },
+      // },
       {
         $project: {
           _id: 1,

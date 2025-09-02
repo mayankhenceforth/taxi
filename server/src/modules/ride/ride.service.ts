@@ -670,7 +670,6 @@ export class RideService {
 
       await ride.save({ session });
 
-      // Make driver available again
       await this.userModel.findByIdAndUpdate(
         ride.driver._id,
         { available: true },
